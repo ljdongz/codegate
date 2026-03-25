@@ -1,0 +1,7 @@
+.omc
+.omx
+.claude
+bin/
+dist/
+*.log
+codegate
