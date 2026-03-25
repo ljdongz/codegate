@@ -17,4 +17,5 @@ clean:
 
 install: build
 	@mkdir -p $(HOME)/go/bin
-	cp $(BINDIR)/$(BINARY) $(HOME)/go/bin/$(BINARY)
+	cp $(BINDIR)/$(BINARY) $(HOME)/go/bin/$(BINARY).tmp
+	mv $(HOME)/go/bin/$(BINARY).tmp $(HOME)/go/bin/$(BINARY)
