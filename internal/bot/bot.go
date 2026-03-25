@@ -73,7 +73,7 @@ func (b *Bot) Start() error {
 			if !b.isAllowed(update.Message.From.ID) {
 				continue
 			}
-			if strings.HasPrefix(update.Message.Text, "/codegate") {
+			if update.Message.IsCommand() && update.Message.Command() == "codegate" {
 				b.handleCG(update.Message)
 			}
 		case <-b.stopCh:
@@ -100,16 +100,7 @@ func (b *Bot) isAllowed(userID int64) bool {
 }
 
 func (b *Bot) handleCG(msg *tgbotapi.Message) {
-	text := strings.TrimPrefix(msg.Text, "/codegate")
-	// Strip @botusername suffix from autocomplete (e.g. "/codegate@mybot new" → " new")
-	if len(text) > 0 && text[0] == '@' {
-		if idx := strings.IndexByte(text, ' '); idx >= 0 {
-			text = text[idx:]
-		} else {
-			text = ""
-		}
-	}
-	args := strings.Fields(text)
+	args := strings.Fields(msg.CommandArguments())
 
 	if len(args) == 0 || args[0] == "help" {
 		b.reply(msg.Chat.ID, helpText())
