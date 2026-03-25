@@ -101,6 +101,14 @@ func (b *Bot) isAllowed(userID int64) bool {
 
 func (b *Bot) handleCG(msg *tgbotapi.Message) {
 	text := strings.TrimPrefix(msg.Text, "/codegate")
+	// Strip @botusername suffix from autocomplete (e.g. "/codegate@mybot new" → " new")
+	if len(text) > 0 && text[0] == '@' {
+		if idx := strings.IndexByte(text, ' '); idx >= 0 {
+			text = text[idx:]
+		} else {
+			text = ""
+		}
+	}
 	args := strings.Fields(text)
 
 	if len(args) == 0 || args[0] == "help" {
