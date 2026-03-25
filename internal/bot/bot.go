@@ -47,7 +47,16 @@ func New(token string, sm SessionManager, allowedUsers []int64) (*Bot, error) {
 	}, nil
 }
 
+func (b *Bot) registerCommands() {
+	cmds := tgbotapi.NewSetMyCommands(
+		tgbotapi.BotCommand{Command: "codegate", Description: "Claude Code 세션 관리 (new, stop, list, status, switch)"},
+	)
+	b.api.Request(cmds) //nolint:errcheck
+}
+
 func (b *Bot) Start() error {
+	b.registerCommands()
+
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	updates := b.api.GetUpdatesChan(u)
@@ -64,7 +73,7 @@ func (b *Bot) Start() error {
 			if !b.isAllowed(update.Message.From.ID) {
 				continue
 			}
-			if strings.HasPrefix(update.Message.Text, "/cg") {
+			if strings.HasPrefix(update.Message.Text, "/codegate") {
 				b.handleCG(update.Message)
 			}
 		case <-b.stopCh:
@@ -91,7 +100,7 @@ func (b *Bot) isAllowed(userID int64) bool {
 }
 
 func (b *Bot) handleCG(msg *tgbotapi.Message) {
-	text := strings.TrimPrefix(msg.Text, "/cg")
+	text := strings.TrimPrefix(msg.Text, "/codegate")
 	args := strings.Fields(text)
 
 	if len(args) == 0 || args[0] == "help" {
@@ -111,13 +120,13 @@ func (b *Bot) handleCG(msg *tgbotapi.Message) {
 	case "switch":
 		b.handleSwitch(msg.Chat.ID, msg.From.ID, args[1:])
 	default:
-		b.reply(msg.Chat.ID, fmt.Sprintf("Unknown command %q. Use /cg help.", args[0]))
+		b.reply(msg.Chat.ID, fmt.Sprintf("Unknown command %q. Use /codegate help.", args[0]))
 	}
 }
 
 func (b *Bot) handleNew(chatID int64, userID int64, args []string) {
 	if len(args) < 1 {
-		b.reply(chatID, "Usage: /cg new <name> [path]")
+		b.reply(chatID, "Usage: /codegate new <name> [path]")
 		return
 	}
 	name, path, ok := b.resolveNamePath(chatID, args)
@@ -139,7 +148,7 @@ func (b *Bot) handleNew(chatID int64, userID int64, args []string) {
 
 func (b *Bot) handleStop(chatID int64, userID int64, args []string) {
 	if len(args) < 1 {
-		b.reply(chatID, "Usage: /cg stop <name>")
+		b.reply(chatID, "Usage: /codegate stop <name>")
 		return
 	}
 	name := args[0]
@@ -215,7 +224,7 @@ func (b *Bot) handleStatus(chatID int64, userID int64) {
 
 func (b *Bot) handleSwitch(chatID int64, userID int64, args []string) {
 	if len(args) < 1 {
-		b.reply(chatID, "Usage: /cg switch <name> [path]")
+		b.reply(chatID, "Usage: /codegate switch <name> [path]")
 		return
 	}
 	name, path, ok := b.resolveNamePath(chatID, args)
@@ -299,10 +308,10 @@ func expandPath(p string) (string, error) {
 
 func helpText() string {
 	return `codegate bot commands:
-  /cg new <name> [path]    Start a new Claude session
-  /cg stop <name>          Stop a session
-  /cg list                 List active sessions
-  /cg status               Show status and default project
-  /cg switch <name> [path] Switch to a different session
-  /cg help                 Show this help`
+  /codegate new <name> [path]    Start a new Claude session
+  /codegate stop <name>          Stop a session
+  /codegate list                 List active sessions
+  /codegate status               Show status and default project
+  /codegate switch <name> [path] Switch to a different session
+  /codegate help                 Show this help`
 }
