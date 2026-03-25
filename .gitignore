@@ -4,4 +4,4 @@
 bin/
 dist/
 *.log
-codegate
+/codegate
