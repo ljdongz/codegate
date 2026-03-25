@@ -35,14 +35,27 @@ make install
 
 ## Setup
 
+### Option A: Claude Code로 셋업 (추천)
+
+Claude Code에서 다음을 입력하세요:
+
+```
+@SETUP.md 를 따라 codegate를 세팅해줘
+```
+
+의존성 설치, 플러그인 설치, 설정 파일 생성을 Claude Code가 안내합니다.
+
+### Option B: CLI로 직접 셋업
+
 ```bash
 codegate setup
 ```
 
-필요 사항:
-- `claude` CLI 설치
+사전 준비:
+- `claude` CLI 설치 및 로그인 (`claude /login`)
 - `tmux` 설치
 - `bun` 설치 (Claude Code 텔레그램 플러그인 런타임)
+- 텔레그램 플러그인 설치 (`claude /plugin install telegram@claude-plugins-official`)
 - BotFather에서 봇 2개 생성 (관리용, Claude용)
 - 텔레그램 user ID (@userinfobot에서 확인)
 
