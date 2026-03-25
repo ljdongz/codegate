@@ -85,13 +85,38 @@ func cmdSetup() {
 	fmt.Println()
 
 	fmt.Println("Checking dependencies...")
-	deps := []string{"claude", "tmux", "bun"}
-	for _, dep := range deps {
-		if _, err := exec.LookPath(dep); err != nil {
-			fmt.Fprintf(os.Stderr, "  ✗ %s not found. Please install it first.\n", dep)
+	hasBrew := false
+	if _, err := exec.LookPath("brew"); err == nil {
+		hasBrew = true
+	}
+
+	type dep struct {
+		name    string
+		brewPkg string // empty means not auto-installable
+	}
+	deps := []dep{
+		{"claude", ""},
+		{"tmux", "tmux"},
+		{"bun", "oven-sh/bun/bun"},
+	}
+	for _, d := range deps {
+		if _, err := exec.LookPath(d.name); err == nil {
+			fmt.Printf("  ✓ %s\n", d.name)
+			continue
+		}
+		if !hasBrew || d.brewPkg == "" {
+			fmt.Fprintf(os.Stderr, "  ✗ %s not found. Please install it first.\n", d.name)
 			os.Exit(1)
 		}
-		fmt.Printf("  ✓ %s\n", dep)
+		fmt.Printf("  ✗ %s not found. Installing via Homebrew...\n", d.name)
+		installCmd := exec.Command("brew", "install", d.brewPkg)
+		installCmd.Stdout = os.Stdout
+		installCmd.Stderr = os.Stderr
+		if err := installCmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "  Failed to install %s: %v\n", d.name, err)
+			os.Exit(1)
+		}
+		fmt.Printf("  ✓ %s installed\n", d.name)
 	}
 	fmt.Println()
 
