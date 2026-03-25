@@ -158,12 +158,12 @@ func cmdSetup() {
 	fmt.Println("Config saved to ~/.codegate/config.yaml")
 
 	fmt.Println("Installing Claude Code telegram plugin...")
-	installCmd := exec.Command("claude", "-p", "--output-format", "text", "/plugin install telegram@claude-plugins-official")
+	installCmd := exec.Command("claude", "plugin", "install", "telegram@claude-plugins-official")
 	installCmd.Stdout = os.Stdout
 	installCmd.Stderr = os.Stderr
 	if err := installCmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: plugin install failed: %v\n", err)
-		fmt.Println("You may need to install it manually: claude /plugin install telegram@claude-plugins-official")
+		fmt.Fprintf(os.Stderr, "Warning: auto-install failed: %v\n", err)
+		fmt.Println("Install manually: claude /plugin install telegram@claude-plugins-official")
 	}
 
 	home, _ := os.UserHomeDir()
