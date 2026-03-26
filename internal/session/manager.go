@@ -15,19 +15,17 @@ import (
 type Manager struct {
 	mu              sync.RWMutex
 	claudeBotToken  string
-	claudeOAuthToken string
 	allowedUsers    []int64
 	maxSessions     int
 	skipPermissions bool
 }
 
-func NewManager(claudeBotToken, claudeOAuthToken string, allowedUsers []int64, maxSessions int, skipPermissions bool) *Manager {
+func NewManager(claudeBotToken string, allowedUsers []int64, maxSessions int, skipPermissions bool) *Manager {
 	return &Manager{
-		claudeBotToken:   claudeBotToken,
-		claudeOAuthToken: claudeOAuthToken,
-		allowedUsers:     allowedUsers,
-		maxSessions:      maxSessions,
-		skipPermissions:  skipPermissions,
+		claudeBotToken:  claudeBotToken,
+		allowedUsers:    allowedUsers,
+		maxSessions:     maxSessions,
+		skipPermissions: skipPermissions,
 	}
 }
 
@@ -96,11 +94,7 @@ func (m *Manager) startSession(name, projectPath string) error {
 		return fmt.Errorf("setting up telegram .env: %w", err)
 	}
 
-	claudeCmd := ""
-	if m.claudeOAuthToken != "" {
-		claudeCmd += "export CLAUDE_CODE_OAUTH_TOKEN='" + shellEscape(m.claudeOAuthToken) + "' && "
-	}
-	claudeCmd += "cd '" + shellEscape(projectPath) + "' && claude --channels plugin:telegram@claude-plugins-official"
+	claudeCmd := "cd '" + shellEscape(projectPath) + "' && claude --channels plugin:telegram@claude-plugins-official"
 	if m.skipPermissions {
 		claudeCmd += " --dangerously-skip-permissions"
 	}

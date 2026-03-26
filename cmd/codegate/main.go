@@ -56,8 +56,6 @@ func main() {
 		cmdLogs()
 	case "run":
 		cmdRun()
-	case "login":
-		cmdLogin()
 	case "uninstall":
 		cmdUninstall()
 	case "help", "-h", "--help":
@@ -81,46 +79,8 @@ func printHelp() {
 	fmt.Println("  status   Show running status")
 	fmt.Println("  logs     Tail log file")
 	fmt.Println("  run      Run in foreground (for debugging)")
-	fmt.Println("  login    Authenticate Claude Code and save OAuth token")
 	fmt.Println("  uninstall Remove all codegate data and settings")
 	fmt.Println("  help     Show this help")
-}
-
-func cmdLogin() {
-	fmt.Println("Running claude setup-token...")
-	fmt.Println("A browser window will open for authentication.")
-	fmt.Println()
-
-	cmd := exec.Command("claude", "setup-token")
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
-
-	out, err := cmd.Output()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to run claude setup-token: %v\n", err)
-		os.Exit(1)
-	}
-
-	token := strings.TrimSpace(string(out))
-	if token == "" {
-		fmt.Fprintln(os.Stderr, "No token received.")
-		os.Exit(1)
-	}
-
-	cfg, err := config.Load()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
-		os.Exit(1)
-	}
-
-	cfg.ClaudeOAuthToken = token
-	if err := cfg.Save(); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to save config: %v\n", err)
-		os.Exit(1)
-	}
-
-	fmt.Println("OAuth token saved to config.yaml.")
-	fmt.Println("Run 'codegate restart' to apply.")
 }
 
 func cmdSetup() {
@@ -351,7 +311,7 @@ func cmdRun() {
 		log.Fatal("Claude bot token not configured. Run 'codegate setup' first.")
 	}
 
-	sm := session.NewManager(cfg.ClaudeBotToken, cfg.ClaudeOAuthToken, cfg.Telegram.AllowedUsers, cfg.MaxSessions, cfg.SkipPermissions)
+	sm := session.NewManager(cfg.ClaudeBotToken, cfg.Telegram.AllowedUsers, cfg.MaxSessions, cfg.SkipPermissions)
 
 	b, err := bot.New(cfg.Telegram.Token, sm, cfg.Telegram.AllowedUsers)
 	if err != nil {

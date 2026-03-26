@@ -44,7 +44,7 @@ func TestParseTimestamp(t *testing.T) {
 
 func TestNewManager(t *testing.T) {
 	allowedUsers := []int64{123, 456}
-	m := NewManager("bot-token", "", allowedUsers, 5, true)
+	m := NewManager("bot-token", allowedUsers, 5, true)
 
 	if m.claudeBotToken != "bot-token" {
 		t.Errorf("claudeBotToken = %q, want %q", m.claudeBotToken, "bot-token")

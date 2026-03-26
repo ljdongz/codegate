@@ -14,7 +14,6 @@ type Config struct {
 		AllowedUsers []int64 `yaml:"allowed_users"`
 	} `yaml:"telegram"`
 	ClaudeBotToken  string `yaml:"claude_bot_token"`
-	ClaudeOAuthToken string `yaml:"claude_oauth_token,omitempty"`
 	MaxSessions     int    `yaml:"max_sessions"`
 	SkipPermissions bool   `yaml:"skip_permissions"`
 }
