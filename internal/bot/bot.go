@@ -85,7 +85,7 @@ func (b *Bot) Start() error {
 			if !b.isAllowed(update.Message.From.ID) {
 				continue
 			}
-			if update.Message.IsCommand() {
+			if update.Message.IsCommand() && b.isCommandForMe(update.Message) {
 				b.handleCommand(update.Message)
 			}
 		case <-b.stopCh:
@@ -97,6 +97,29 @@ func (b *Bot) Start() error {
 func (b *Bot) Stop() {
 	close(b.stopCh)
 	b.api.StopReceivingUpdates()
+}
+
+func (b *Bot) isCommandForMe(msg *tgbotapi.Message) bool {
+	if msg.Chat.Type == "private" {
+		return true
+	}
+	botName := b.api.Self.UserName
+	// /help@codegatebot (no space)
+	if msg.CommandWithAt() == msg.Command()+"@"+botName {
+		return true
+	}
+	// /help @codegatebot (with space)
+	if msg.Entities != nil {
+		for _, e := range msg.Entities {
+			if e.Type == "mention" {
+				mention := msg.Text[e.Offset : e.Offset+e.Length]
+				if mention == "@"+botName {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func (b *Bot) isAllowed(userID int64) bool {
