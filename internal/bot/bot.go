@@ -338,7 +338,7 @@ func (b *Bot) handleGroupAdd(msg *tgbotapi.Message) {
 	}
 
 	access.Groups[groupID] = groupConfig{
-		RequireMention: false,
+		RequireMention: true,
 		AllowFrom:      []string{},
 	}
 	if err := saveAccessJSON(access); err != nil {
