@@ -32,18 +32,25 @@ codegate는 하나의 관리 봇으로 Claude Code 세션의 전체 라이프사
 
 ## 설치
 
+### Homebrew (macOS)
+
+```bash
+brew install ljdongz/tap/codegate
+```
+
+### Shell script (macOS / Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ljdongz/codegate/main/install.sh | sh
+```
+
 ### 소스에서 빌드
 
 ```bash
 git clone https://github.com/ljdongz/codegate.git
 cd codegate
-make build
 make install
 ```
-
-### 릴리즈 다운로드
-
-[Releases](https://github.com/ljdongz/codegate/releases)에서 바이너리를 다운로드하세요.
 
 ## 설정
 

@@ -32,18 +32,25 @@ All session isolation is handled by tmux — each project runs in its own `cg-<n
 
 ## Installation
 
+### Homebrew (macOS)
+
+```bash
+brew install ljdongz/tap/codegate
+```
+
+### Shell script (macOS / Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ljdongz/codegate/main/install.sh | sh
+```
+
 ### From source
 
 ```bash
 git clone https://github.com/ljdongz/codegate.git
 cd codegate
-make build
 make install
 ```
-
-### From release
-
-Download binaries from [Releases](https://github.com/ljdongz/codegate/releases).
 
 ## Setup
 
