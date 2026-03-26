@@ -1,7 +1,6 @@
 package bot
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,6 +12,8 @@ import (
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/ljdongz/codegate/internal/channel"
+	"github.com/ljdongz/codegate/internal/pathutil"
 	"github.com/ljdongz/codegate/internal/session"
 )
 
@@ -179,7 +180,7 @@ func (b *Bot) handleNew(chatID int64, userID int64, args []string) {
 		return
 	}
 
-	path, err := expandPath(args[0])
+	path, err := pathutil.Expand(args[0])
 	if err != nil {
 		b.reply(chatID, fmt.Sprintf("Invalid path: %v", err))
 		return
@@ -291,7 +292,7 @@ func (b *Bot) handleSwitch(chatID int64, userID int64, args []string, resume boo
 		return
 	}
 
-	path, err := expandPath(args[0])
+	path, err := pathutil.Expand(args[0])
 	if err != nil {
 		b.reply(chatID, fmt.Sprintf("Invalid path: %v", err))
 		return
@@ -333,7 +334,7 @@ func (b *Bot) handleLs(chatID int64, args []string) {
 		dir = "~"
 	}
 
-	expanded, err := expandPath(dir)
+	expanded, err := pathutil.Expand(dir)
 	if err != nil {
 		b.reply(chatID, fmt.Sprintf("Invalid path: %v", err))
 		return
@@ -355,7 +356,7 @@ func (b *Bot) handleMkdir(chatID int64, args []string) {
 		return
 	}
 
-	path, err := expandPath(args[0])
+	path, err := pathutil.Expand(args[0])
 	if err != nil {
 		b.reply(chatID, fmt.Sprintf("Invalid path: %v", err))
 		return
@@ -428,14 +429,14 @@ func (b *Bot) handleGroupAdd(msg *tgbotapi.Message) {
 	}
 
 	groupID := strconv.FormatInt(msg.Chat.ID, 10)
-	access, err := loadAccessJSON()
+	access, err := channel.LoadAccess()
 	if err != nil {
 		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to read access.json: %v", err))
 		return
 	}
 
 	if access.Groups == nil {
-		access.Groups = make(map[string]groupConfig)
+		access.Groups = make(map[string]channel.GroupConfig)
 	}
 
 	if _, exists := access.Groups[groupID]; exists {
@@ -443,11 +444,11 @@ func (b *Bot) handleGroupAdd(msg *tgbotapi.Message) {
 		return
 	}
 
-	access.Groups[groupID] = groupConfig{
+	access.Groups[groupID] = channel.GroupConfig{
 		RequireMention: true,
 		AllowFrom:      []string{},
 	}
-	if err := saveAccessJSON(access); err != nil {
+	if err := channel.SaveAccess(access); err != nil {
 		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to save access.json: %v", err))
 		return
 	}
@@ -462,7 +463,7 @@ func (b *Bot) handleGroupRemove(msg *tgbotapi.Message) {
 	}
 
 	groupID := strconv.FormatInt(msg.Chat.ID, 10)
-	access, err := loadAccessJSON()
+	access, err := channel.LoadAccess()
 	if err != nil {
 		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to read access.json: %v", err))
 		return
@@ -474,7 +475,7 @@ func (b *Bot) handleGroupRemove(msg *tgbotapi.Message) {
 	}
 
 	delete(access.Groups, groupID)
-	if err := saveAccessJSON(access); err != nil {
+	if err := channel.SaveAccess(access); err != nil {
 		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to save access.json: %v", err))
 		return
 	}
@@ -482,52 +483,6 @@ func (b *Bot) handleGroupRemove(msg *tgbotapi.Message) {
 	b.reply(msg.Chat.ID, fmt.Sprintf("Group removed (ID: %s). Restart the session with /stop + /new.", groupID))
 }
 
-type groupConfig struct {
-	RequireMention bool     `json:"requireMention"`
-	AllowFrom      []string `json:"allowFrom"`
-}
-
-type accessConfig struct {
-	DMPolicy  string                 `json:"dmPolicy"`
-	AllowFrom []string               `json:"allowFrom"`
-	Groups    map[string]groupConfig `json:"groups,omitempty"`
-}
-
-func accessJSONPath() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".claude", "channels", "telegram", "access.json"), nil
-}
-
-func loadAccessJSON() (*accessConfig, error) {
-	path, err := accessJSONPath()
-	if err != nil {
-		return nil, err
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-	var ac accessConfig
-	if err := json.Unmarshal(data, &ac); err != nil {
-		return nil, err
-	}
-	return &ac, nil
-}
-
-func saveAccessJSON(ac *accessConfig) error {
-	path, err := accessJSONPath()
-	if err != nil {
-		return err
-	}
-	data, err := json.Marshal(ac)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0600)
-}
 
 func (b *Bot) cleanArgs(raw string) []string {
 	fields := strings.Fields(raw)
@@ -565,23 +520,6 @@ func splitMessage(text string, maxLen int) []string {
 	return append([]string{first}, splitMessage(remaining, maxLen)...)
 }
 
-func expandPath(p string) (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("getting home directory: %w", err)
-	}
-
-	if p == "~" || strings.HasPrefix(p, "~/") {
-		return home + p[1:], nil
-	}
-
-	if strings.HasPrefix(p, "/") {
-		return p, nil
-	}
-
-	p = strings.TrimPrefix(p, "./")
-	return home + "/" + p, nil
-}
 
 func helpText() string {
 	return `codegate commands:

@@ -1,16 +1,18 @@
 package session
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/ljdongz/codegate/internal/channel"
 )
+
+const sessionPrefix = "cg-"
 
 type Manager struct {
 	mu              sync.RWMutex
@@ -71,7 +73,7 @@ func (m *Manager) Clear(name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	sessionName := "cg-" + name
+	sessionName := sessionPrefix + name
 	if !tmuxSessionExists(sessionName) {
 		return fmt.Errorf("session %q does not exist", name)
 	}
@@ -92,7 +94,7 @@ func (m *Manager) Logs(name string, lines int) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	sessionName := "cg-" + name
+	sessionName := sessionPrefix + name
 	if !tmuxSessionExists(sessionName) {
 		return "", fmt.Errorf("session %q does not exist", name)
 	}
@@ -105,7 +107,7 @@ func (m *Manager) Logs(name string, lines int) (string, error) {
 }
 
 func (m *Manager) startSession(name, projectPath string, resume bool) error {
-	sessionName := "cg-" + name
+	sessionName := sessionPrefix + name
 
 	if tmuxSessionExists(sessionName) {
 		return fmt.Errorf("session %q already exists", name)
@@ -127,11 +129,11 @@ func (m *Manager) startSession(name, projectPath string, resume bool) error {
 		return fmt.Errorf("path is not a directory: %s", projectPath)
 	}
 
-	if err := setupAccessJSON(m.allowedUsers); err != nil {
+	if err := channel.SetupAccess(m.allowedUsers); err != nil {
 		return fmt.Errorf("setting up access.json: %w", err)
 	}
 
-	if err := setupTelegramEnv(m.claudeBotToken); err != nil {
+	if err := channel.SetupEnv(m.claudeBotToken); err != nil {
 		return fmt.Errorf("setting up telegram .env: %w", err)
 	}
 
@@ -163,7 +165,7 @@ func (m *Manager) stopAllSessions() error {
 }
 
 func stopSession(name string) error {
-	if err := exec.Command("tmux", "kill-session", "-t", "cg-"+name).Run(); err != nil {
+	if err := exec.Command("tmux", "kill-session", "-t", sessionPrefix+name).Run(); err != nil {
 		return fmt.Errorf("killing session %q: %w", name, err)
 	}
 	return nil
@@ -186,7 +188,7 @@ func listSessions() ([]SessionInfo, error) {
 			continue
 		}
 		sessionName := parts[0]
-		if !strings.HasPrefix(sessionName, "cg-") {
+		if !strings.HasPrefix(sessionName, sessionPrefix) {
 			continue
 		}
 		createdAt, err := parseTimestamp(parts[1])
@@ -194,56 +196,13 @@ func listSessions() ([]SessionInfo, error) {
 			continue
 		}
 		sessions = append(sessions, SessionInfo{
-			Name:      strings.TrimPrefix(sessionName, "cg-"),
+			Name:      strings.TrimPrefix(sessionName, sessionPrefix),
 			CreatedAt: createdAt,
 		})
 	}
 	return sessions, nil
 }
 
-func setupAccessJSON(allowedUsers []int64) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	dir := filepath.Join(home, ".claude", "channels", "telegram")
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return err
-	}
-
-	path := filepath.Join(dir, "access.json")
-
-	existing := make(map[string]interface{})
-	if data, err := os.ReadFile(path); err == nil {
-		json.Unmarshal(data, &existing)
-	}
-
-	userStrings := make([]string, len(allowedUsers))
-	for i, u := range allowedUsers {
-		userStrings[i] = strconv.FormatInt(u, 10)
-	}
-	existing["dmPolicy"] = "allowlist"
-	existing["allowFrom"] = userStrings
-
-	content, err := json.Marshal(existing)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, content, 0600)
-}
-
-func setupTelegramEnv(token string) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	dir := filepath.Join(home, ".claude", "channels", "telegram")
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return err
-	}
-	content := "TELEGRAM_BOT_TOKEN=" + token
-	return os.WriteFile(filepath.Join(dir, ".env"), []byte(content), 0600)
-}
 
 func shellEscape(s string) string {
 	return strings.ReplaceAll(s, "'", `'\''`)
