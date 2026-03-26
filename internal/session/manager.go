@@ -67,6 +67,27 @@ func (m *Manager) StopAll() error {
 	return m.stopAllSessions()
 }
 
+func (m *Manager) Clear(name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	sessionName := "cg-" + name
+	if !tmuxSessionExists(sessionName) {
+		return fmt.Errorf("session %q does not exist", name)
+	}
+
+	out, err := exec.Command("tmux", "display-message", "-t", sessionName, "-p", "#{pane_current_path}").Output()
+	if err != nil {
+		return fmt.Errorf("getting session path: %w", err)
+	}
+	projectPath := strings.TrimSpace(string(out))
+
+	if err := stopSession(name); err != nil {
+		return err
+	}
+	return m.startSession(name, projectPath)
+}
+
 func (m *Manager) Logs(name string, lines int) (string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -98,8 +119,12 @@ func (m *Manager) startSession(name, projectPath string) error {
 		return fmt.Errorf("max sessions (%d) reached", m.maxSessions)
 	}
 
-	if err := os.MkdirAll(projectPath, 0755); err != nil {
-		return fmt.Errorf("creating project path: %w", err)
+	info, err := os.Stat(projectPath)
+	if err != nil {
+		return fmt.Errorf("path does not exist: %s", projectPath)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("path is not a directory: %s", projectPath)
 	}
 
 	if err := setupAccessJSON(m.allowedUsers); err != nil {

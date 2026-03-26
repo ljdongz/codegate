@@ -22,6 +22,7 @@ type SessionManager interface {
 	List() ([]session.SessionInfo, error)
 	Switch(name, projectPath string) error
 	StopAll() error
+	Clear(name string) error
 	Logs(name string, lines int) (string, error)
 }
 
@@ -54,14 +55,16 @@ func New(token string, sm SessionManager, allowedUsers []int64) (*Bot, error) {
 
 func (b *Bot) registerCommands() {
 	cmds := tgbotapi.NewSetMyCommands(
-		tgbotapi.BotCommand{Command: "new", Description: "새 Claude 세션 시작 — /new <name> [path]"},
+		tgbotapi.BotCommand{Command: "new", Description: "새 Claude 세션 시작 — /new <path>"},
 		tgbotapi.BotCommand{Command: "stop", Description: "활성 세션 종료"},
 		tgbotapi.BotCommand{Command: "list", Description: "활성 세션 목록"},
 		tgbotapi.BotCommand{Command: "status", Description: "상태 및 기본 프로젝트"},
-		tgbotapi.BotCommand{Command: "switch", Description: "세션 전환 — /switch <name> [path]"},
+		tgbotapi.BotCommand{Command: "switch", Description: "세션 전환 — /switch <path>"},
 		tgbotapi.BotCommand{Command: "ls", Description: "디렉토리 목록 — /ls [flags] [path]"},
 		tgbotapi.BotCommand{Command: "groupadd", Description: "이 그룹을 Claude 봇 허용 목록에 추가"},
 		tgbotapi.BotCommand{Command: "groupremove", Description: "이 그룹을 Claude 봇 허용 목록에서 제거"},
+		tgbotapi.BotCommand{Command: "mkdir", Description: "디렉토리 생성 — /mkdir <path>"},
+		tgbotapi.BotCommand{Command: "clear", Description: "현재 세션 재시작"},
 		tgbotapi.BotCommand{Command: "logs", Description: "Claude 세션 로그 확인 — /logs [lines]"},
 		tgbotapi.BotCommand{Command: "help", Description: "도움말"},
 	)
@@ -156,6 +159,10 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 		b.handleGroupAdd(msg)
 	case "groupremove":
 		b.handleGroupRemove(msg)
+	case "mkdir":
+		b.handleMkdir(msg.Chat.ID, args)
+	case "clear":
+		b.handleClear(msg.Chat.ID, msg.From.ID)
 	case "logs":
 		b.handleLogs(msg.Chat.ID, msg.From.ID, args)
 	case "help":
@@ -165,16 +172,24 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 
 func (b *Bot) handleNew(chatID int64, userID int64, args []string) {
 	if len(args) < 1 {
-		b.reply(chatID, "Usage: /new <name> [path]")
+		b.reply(chatID, "Usage: /new <path>")
 		return
 	}
-	name, path, ok := b.resolveNamePath(chatID, args)
-	if !ok {
+
+	path, err := expandPath(args[0])
+	if err != nil {
+		b.reply(chatID, fmt.Sprintf("Invalid path: %v", err))
+		return
+	}
+
+	name := filepath.Base(path)
+	if !projectNameRe.MatchString(name) {
+		b.reply(chatID, fmt.Sprintf("Invalid project name %q (from path). Use only letters, numbers, hyphens, or underscores.", name))
 		return
 	}
 
 	if err := b.sm.Start(name, path); err != nil {
-		b.reply(chatID, fmt.Sprintf("Failed to start session %q: %v", name, err))
+		b.reply(chatID, fmt.Sprintf("Failed to start session: %v", err))
 		return
 	}
 
@@ -269,11 +284,19 @@ func (b *Bot) handleStatus(chatID int64, userID int64) {
 
 func (b *Bot) handleSwitch(chatID int64, userID int64, args []string) {
 	if len(args) < 1 {
-		b.reply(chatID, "Usage: /switch <name> [path]")
+		b.reply(chatID, "Usage: /switch <path>")
 		return
 	}
-	name, path, ok := b.resolveNamePath(chatID, args)
-	if !ok {
+
+	path, err := expandPath(args[0])
+	if err != nil {
+		b.reply(chatID, fmt.Sprintf("Invalid path: %v", err))
+		return
+	}
+
+	name := filepath.Base(path)
+	if !projectNameRe.MatchString(name) {
+		b.reply(chatID, fmt.Sprintf("Invalid project name %q (from path). Use only letters, numbers, hyphens, or underscores.", name))
 		return
 	}
 
@@ -317,6 +340,44 @@ func (b *Bot) handleLs(chatID int64, args []string) {
 	}
 
 	b.reply(chatID, fmt.Sprintf("$ ls %s\n```\n%s```", strings.Join(append(flags, dir), " "), string(out)))
+}
+
+func (b *Bot) handleMkdir(chatID int64, args []string) {
+	if len(args) < 1 {
+		b.reply(chatID, "Usage: /mkdir <path>")
+		return
+	}
+
+	path, err := expandPath(args[0])
+	if err != nil {
+		b.reply(chatID, fmt.Sprintf("Invalid path: %v", err))
+		return
+	}
+
+	if err := os.MkdirAll(path, 0755); err != nil {
+		b.reply(chatID, fmt.Sprintf("Failed to create directory: %v", err))
+		return
+	}
+
+	b.reply(chatID, fmt.Sprintf("Directory created: %s", path))
+}
+
+func (b *Bot) handleClear(chatID int64, userID int64) {
+	b.mu.RLock()
+	def := b.defaultProject[userID]
+	b.mu.RUnlock()
+
+	if def == "" {
+		b.reply(chatID, "No active session. Start one with /new first.")
+		return
+	}
+
+	if err := b.sm.Clear(def); err != nil {
+		b.reply(chatID, fmt.Sprintf("Failed to restart session: %v", err))
+		return
+	}
+
+	b.reply(chatID, fmt.Sprintf("Session %q restarted.", def))
 }
 
 func (b *Bot) handleLogs(chatID int64, userID int64, args []string) {
@@ -473,29 +534,6 @@ func (b *Bot) cleanArgs(raw string) []string {
 	return cleaned
 }
 
-func (b *Bot) resolveNamePath(chatID int64, args []string) (string, string, bool) {
-	name := args[0]
-	if !projectNameRe.MatchString(name) {
-		b.reply(chatID, fmt.Sprintf("Invalid project name %q. Use only letters, numbers, hyphens, or underscores.", name))
-		return "", "", false
-	}
-
-	if len(args) >= 2 {
-		path, err := expandPath(args[1])
-		if err != nil {
-			b.reply(chatID, fmt.Sprintf("Invalid path: %v", err))
-			return "", "", false
-		}
-		return name, path, true
-	}
-
-	home, err := os.UserHomeDir()
-	if err != nil {
-		b.reply(chatID, fmt.Sprintf("Could not determine home directory: %v", err))
-		return "", "", false
-	}
-	return name, home + "/Dev/" + name, true
-}
 
 func (b *Bot) reply(chatID int64, text string) {
 	parts := splitMessage(text, maxMessageLen)
@@ -540,11 +578,13 @@ func expandPath(p string) (string, error) {
 
 func helpText() string {
 	return `codegate commands:
-  /new <name> [path]    Start a new Claude session
+  /new <path>           Start a new Claude session
   /stop                 Stop active session
   /list                 List active sessions
   /status               Show status and default project
-  /switch <name> [path] Switch to a different session
+  /switch <path>        Switch to a different session
+  /mkdir <path>         Create a directory
+  /clear                Restart current session
   /ls [flags] [path]    List directory contents (default: ~)
   /groupadd             Allow this group for Claude bot (run in group)
   /groupremove          Remove this group from allow list (run in group)
