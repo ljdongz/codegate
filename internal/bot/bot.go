@@ -3,6 +3,7 @@ package bot
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 	"sync"
@@ -54,6 +55,7 @@ func (b *Bot) registerCommands() {
 		tgbotapi.BotCommand{Command: "list", Description: "활성 세션 목록"},
 		tgbotapi.BotCommand{Command: "status", Description: "상태 및 기본 프로젝트"},
 		tgbotapi.BotCommand{Command: "switch", Description: "세션 전환 — /switch <name> [path]"},
+		tgbotapi.BotCommand{Command: "ls", Description: "디렉토리 목록 — /ls [path]"},
 		tgbotapi.BotCommand{Command: "help", Description: "도움말"},
 	)
 	b.api.Request(cmds) //nolint:errcheck
@@ -118,6 +120,8 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 		b.handleStatus(msg.Chat.ID, msg.From.ID)
 	case "switch":
 		b.handleSwitch(msg.Chat.ID, msg.From.ID, args)
+	case "ls":
+		b.handleLs(msg.Chat.ID, args)
 	case "help":
 		b.reply(msg.Chat.ID, helpText())
 	}
@@ -249,6 +253,27 @@ func (b *Bot) handleSwitch(chatID int64, userID int64, args []string) {
 	b.reply(chatID, fmt.Sprintf("Switched to session %q at %s.", name, path))
 }
 
+func (b *Bot) handleLs(chatID int64, args []string) {
+	dir := "~"
+	if len(args) >= 1 {
+		dir = args[0]
+	}
+
+	expanded, err := expandPath(dir)
+	if err != nil {
+		b.reply(chatID, fmt.Sprintf("Invalid path: %v", err))
+		return
+	}
+
+	out, err := exec.Command("ls", "-al", expanded).CombinedOutput()
+	if err != nil {
+		b.reply(chatID, fmt.Sprintf("ls %s failed: %s", dir, string(out)))
+		return
+	}
+
+	b.reply(chatID, fmt.Sprintf("$ ls -al %s\n```\n%s```", dir, string(out)))
+}
+
 func (b *Bot) resolveNamePath(chatID int64, args []string) (string, string, bool) {
 	name := args[0]
 	if !projectNameRe.MatchString(name) {
@@ -314,5 +339,6 @@ func helpText() string {
   /list                 List active sessions
   /status               Show status and default project
   /switch <name> [path] Switch to a different session
+  /ls [path]            List directory contents (default: ~)
   /help                 Show this help`
 }
