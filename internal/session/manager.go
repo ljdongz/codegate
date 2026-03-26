@@ -99,7 +99,8 @@ func (m *Manager) startSession(name, projectPath string) error {
 		claudeCmd += " --dangerously-skip-permissions"
 	}
 
-	if err := exec.Command("tmux", "new-session", "-d", "-s", sessionName, claudeCmd).Run(); err != nil {
+	shellCmd := "zsh -l -c " + "'" + shellEscape(claudeCmd) + "'"
+	if err := exec.Command("tmux", "new-session", "-d", "-s", sessionName, shellCmd).Run(); err != nil {
 		return fmt.Errorf("starting tmux session: %w", err)
 	}
 	return nil
