@@ -52,6 +52,19 @@ cd codegate
 make install
 ```
 
+### 제거
+
+```bash
+# Homebrew
+brew uninstall codegate
+
+# 수동 (curl 설치)
+sudo rm /usr/local/bin/codegate
+
+# 설정 파일 정리
+rm -rf ~/.codegate
+```
+
 ## 설정
 
 ### 사전 준비
