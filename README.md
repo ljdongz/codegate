@@ -124,7 +124,7 @@ Invite both bots into a single group chat.
 
 4. **Register the group** (send to management bot in the group)
    ```
-   /groupadd
+   /group_add
    ```
    Adds the group to the Claude bot's allow list.
 
@@ -134,7 +134,7 @@ Invite both bots into a single group chat.
 
 **Remove group:**
 ```
-/groupremove
+/group_remove
 ```
 
 ### CLI commands
@@ -148,6 +148,8 @@ Invite both bots into a single group chat.
 | `codegate status` | Check running status |
 | `codegate logs` | View logs |
 | `codegate run` | Run in foreground |
+| `codegate update` | Update to latest version |
+| `codegate version` | Show current version |
 
 ### Management bot Telegram commands
 
@@ -157,13 +159,14 @@ Invite both bots into a single group chat.
 | `/stop` | Stop active sessions |
 | `/list` | List active sessions |
 | `/status` | Show status and default project |
-| `/switch <path> [new]` | Switch session (resumes by default, `new` for fresh) |
+| `/switch <path>` | Switch session (resumes previous conversation) |
+| `/switch_new <path>` | Switch session (fresh conversation) |
 | `/clear` | Restart current session (fresh conversation) |
 | `/mkdir <path>` | Create a directory |
 | `/ls [flags] [path]` | List directory contents (default: ~) |
 | `/logs [lines]` | Show Claude session logs (default: 50, max: 200) |
-| `/groupadd` | Add current group to Claude bot allow list |
-| `/groupremove` | Remove current group from allow list |
+| `/group_add` | Add current group to Claude bot allow list |
+| `/group_remove` | Remove current group from allow list |
 | `/help` | Show help |
 
 ### Example workflow
@@ -182,7 +185,7 @@ Invite both bots into a single group chat.
 /switch ~/myapp
 
 # Switch with a fresh conversation
-/switch ~/myapp new
+/switch_new ~/myapp
 
 # Check logs when Claude is not responding
 /logs

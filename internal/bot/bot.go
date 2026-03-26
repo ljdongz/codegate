@@ -59,10 +59,11 @@ func (b *Bot) registerCommands() {
 		tgbotapi.BotCommand{Command: "stop", Description: "Stop active sessions"},
 		tgbotapi.BotCommand{Command: "list", Description: "List active sessions"},
 		tgbotapi.BotCommand{Command: "status", Description: "Show status and default project"},
-		tgbotapi.BotCommand{Command: "switch", Description: "Switch session — /switch <path> [new]"},
+		tgbotapi.BotCommand{Command: "switch", Description: "Switch session (resume) — /switch <path>"},
+		tgbotapi.BotCommand{Command: "switch_new", Description: "Switch session (fresh) — /switch_new <path>"},
 		tgbotapi.BotCommand{Command: "ls", Description: "List directory — /ls [flags] [path]"},
-		tgbotapi.BotCommand{Command: "groupadd", Description: "Allow this group for Claude bot"},
-		tgbotapi.BotCommand{Command: "groupremove", Description: "Remove this group from allow list"},
+		tgbotapi.BotCommand{Command: "group_add", Description: "Allow this group for Claude bot"},
+		tgbotapi.BotCommand{Command: "group_remove", Description: "Remove this group from allow list"},
 		tgbotapi.BotCommand{Command: "mkdir", Description: "Create directory — /mkdir <path>"},
 		tgbotapi.BotCommand{Command: "clear", Description: "Restart current session"},
 		tgbotapi.BotCommand{Command: "logs", Description: "Show Claude session logs — /logs [lines]"},
@@ -152,12 +153,14 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 	case "status":
 		b.handleStatus(msg.Chat.ID, msg.From.ID)
 	case "switch":
-		b.handleSwitch(msg.Chat.ID, msg.From.ID, args)
+		b.handleSwitch(msg.Chat.ID, msg.From.ID, args, true)
+	case "switch_new":
+		b.handleSwitch(msg.Chat.ID, msg.From.ID, args, false)
 	case "ls":
 		b.handleLs(msg.Chat.ID, args)
-	case "groupadd":
+	case "group_add":
 		b.handleGroupAdd(msg)
-	case "groupremove":
+	case "group_remove":
 		b.handleGroupRemove(msg)
 	case "mkdir":
 		b.handleMkdir(msg.Chat.ID, args)
@@ -282,9 +285,9 @@ func (b *Bot) handleStatus(chatID int64, userID int64) {
 	b.reply(chatID, sb.String())
 }
 
-func (b *Bot) handleSwitch(chatID int64, userID int64, args []string) {
+func (b *Bot) handleSwitch(chatID int64, userID int64, args []string, resume bool) {
 	if len(args) < 1 {
-		b.reply(chatID, "Usage: /switch <path> [new]")
+		b.reply(chatID, "Usage: /switch <path>")
 		return
 	}
 
@@ -298,11 +301,6 @@ func (b *Bot) handleSwitch(chatID int64, userID int64, args []string) {
 	if !projectNameRe.MatchString(name) {
 		b.reply(chatID, fmt.Sprintf("Invalid project name %q (from path). Use only letters, numbers, hyphens, or underscores.", name))
 		return
-	}
-
-	resume := true
-	if len(args) >= 2 && args[1] == "new" {
-		resume = false
 	}
 
 	if err := b.sm.Switch(name, path, resume); err != nil {
@@ -587,16 +585,24 @@ func expandPath(p string) (string, error) {
 
 func helpText() string {
 	return `codegate commands:
-  /new <path>           Start a new Claude session
-  /stop                 Stop active session
-  /list                 List active sessions
-  /status               Show status and default project
-  /switch <path> [new]  Switch session (resumes by default, "new" for fresh)
-  /mkdir <path>         Create a directory
-  /clear                Restart current session
-  /ls [flags] [path]    List directory contents (default: ~)
-  /groupadd             Allow this group for Claude bot (run in group)
-  /groupremove          Remove this group from allow list (run in group)
-  /logs [lines]         Show Claude session logs (default: 50, max: 200)
-  /help                 Show this help`
+
+Session:
+- /new <path> — Start a new Claude session. Path must exist (use /mkdir to create).
+- /stop — Stop all active sessions.
+- /switch <path> — Switch to another project. Resumes previous conversation.
+- /switch_new <path> — Switch to another project. Starts a fresh conversation.
+- /clear — Restart current session with a fresh conversation.
+- /list — List active sessions with uptime.
+- /status — Show active sessions and default project.
+- /logs [lines] — Show Claude session terminal output (default: 50, max: 200). Useful when Claude bot is typing but not responding.
+
+File system:
+- /mkdir <path> — Create a directory (supports nested paths).
+- /ls [flags] [path] — List directory contents (default: ~).
+
+Group (must be run inside the group chat):
+- /group_add — Add this group to Claude bot allow list.
+- /group_remove — Remove this group from Claude bot allow list.
+
+- /help — Show this help.`
 }

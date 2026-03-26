@@ -124,7 +124,7 @@ codegate는 두 가지 방식으로 사용할 수 있습니다:
 
 4. **그룹 등록** (그룹 채팅에서 관리 봇에게)
    ```
-   /groupadd
+   /group_add
    ```
    그룹이 Claude 봇의 허용 목록에 추가됩니다.
 
@@ -134,7 +134,7 @@ codegate는 두 가지 방식으로 사용할 수 있습니다:
 
 **그룹 해제:**
 ```
-/groupremove
+/group_remove
 ```
 
 ### CLI 명령어
@@ -148,6 +148,8 @@ codegate는 두 가지 방식으로 사용할 수 있습니다:
 | `codegate status` | 실행 상태 확인 |
 | `codegate logs` | 로그 보기 |
 | `codegate run` | 포그라운드 실행 |
+| `codegate update` | 최신 버전으로 업데이트 |
+| `codegate version` | 현재 버전 확인 |
 
 ### 관리 봇 Telegram 명령어
 
@@ -157,13 +159,14 @@ codegate는 두 가지 방식으로 사용할 수 있습니다:
 | `/stop` | 활성 세션 종료 |
 | `/list` | 활성 세션 목록 |
 | `/status` | 상태 및 기본 프로젝트 |
-| `/switch <path> [new]` | 세션 전환 (기본: 이전 대화 이어감, `new` 옵션: 새 대화) |
+| `/switch <path>` | 세션 전환 (이전 대화 이어감) |
+| `/switch_new <path>` | 세션 전환 (새 대화) |
 | `/clear` | 현재 세션 재시작 (새 대화) |
 | `/mkdir <path>` | 디렉토리 생성 |
 | `/ls [flags] [path]` | 디렉토리 목록 (기본: ~) |
 | `/logs [lines]` | Claude 세션 로그 확인 (기본: 50줄, 최대: 200줄) |
-| `/groupadd` | 현재 그룹을 Claude 봇 허용 목록에 추가 |
-| `/groupremove` | 현재 그룹을 허용 목록에서 제거 |
+| `/group_add` | 현재 그룹을 Claude 봇 허용 목록에 추가 |
+| `/group_remove` | 현재 그룹을 허용 목록에서 제거 |
 | `/help` | 도움말 |
 
 ### 세션 관리 예시
@@ -182,7 +185,7 @@ codegate는 두 가지 방식으로 사용할 수 있습니다:
 /switch ~/myapp
 
 # 새 대화로 전환
-/switch ~/myapp new
+/switch_new ~/myapp
 
 # Claude가 응답하지 않을 때 로그 확인
 /logs
