@@ -55,18 +55,18 @@ func New(token string, sm SessionManager, allowedUsers []int64) (*Bot, error) {
 
 func (b *Bot) registerCommands() {
 	cmds := tgbotapi.NewSetMyCommands(
-		tgbotapi.BotCommand{Command: "new", Description: "새 Claude 세션 시작 — /new <path>"},
-		tgbotapi.BotCommand{Command: "stop", Description: "활성 세션 종료"},
-		tgbotapi.BotCommand{Command: "list", Description: "활성 세션 목록"},
-		tgbotapi.BotCommand{Command: "status", Description: "상태 및 기본 프로젝트"},
-		tgbotapi.BotCommand{Command: "switch", Description: "세션 전환 — /switch <path> [new]"},
-		tgbotapi.BotCommand{Command: "ls", Description: "디렉토리 목록 — /ls [flags] [path]"},
-		tgbotapi.BotCommand{Command: "groupadd", Description: "이 그룹을 Claude 봇 허용 목록에 추가"},
-		tgbotapi.BotCommand{Command: "groupremove", Description: "이 그룹을 Claude 봇 허용 목록에서 제거"},
-		tgbotapi.BotCommand{Command: "mkdir", Description: "디렉토리 생성 — /mkdir <path>"},
-		tgbotapi.BotCommand{Command: "clear", Description: "현재 세션 재시작"},
-		tgbotapi.BotCommand{Command: "logs", Description: "Claude 세션 로그 확인 — /logs [lines]"},
-		tgbotapi.BotCommand{Command: "help", Description: "도움말"},
+		tgbotapi.BotCommand{Command: "new", Description: "Start a new Claude session — /new <path>"},
+		tgbotapi.BotCommand{Command: "stop", Description: "Stop active sessions"},
+		tgbotapi.BotCommand{Command: "list", Description: "List active sessions"},
+		tgbotapi.BotCommand{Command: "status", Description: "Show status and default project"},
+		tgbotapi.BotCommand{Command: "switch", Description: "Switch session — /switch <path> [new]"},
+		tgbotapi.BotCommand{Command: "ls", Description: "List directory — /ls [flags] [path]"},
+		tgbotapi.BotCommand{Command: "groupadd", Description: "Allow this group for Claude bot"},
+		tgbotapi.BotCommand{Command: "groupremove", Description: "Remove this group from allow list"},
+		tgbotapi.BotCommand{Command: "mkdir", Description: "Create directory — /mkdir <path>"},
+		tgbotapi.BotCommand{Command: "clear", Description: "Restart current session"},
+		tgbotapi.BotCommand{Command: "logs", Description: "Show Claude session logs — /logs [lines]"},
+		tgbotapi.BotCommand{Command: "help", Description: "Show help"},
 	)
 	b.api.Request(cmds) //nolint:errcheck
 }

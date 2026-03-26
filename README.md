@@ -1,22 +1,34 @@
 # codegate
 
-텔레그램에서 Claude Code Channel 세션을 원격으로 관리하는 봇.
+A Telegram bot for remotely managing Claude Code Channel sessions.
 
-`/new myapp` 한 줄로 Claude Code 풀 세션(Skills, OMC, MCP 지원)을 텔레그램에서 시작할 수 있습니다.
+Claude Code's [Channel](https://docs.anthropic.com/en/docs/claude-code/channels) feature allows you to interact with Claude Code sessions via Telegram. However, each session must be started and managed manually on the local machine, and connecting multiple projects requires creating separate bots for each one.
+
+codegate solves this by acting as a single management bot that handles the full lifecycle of Claude Code sessions — start, stop, switch, and resume — all from Telegram. One management bot, one Claude bot, unlimited projects.
 
 ## Architecture
 
 ```
-텔레그램 그룹
-    ├─ @codegate_bot (관리) ── /new, /stop, /list, /switch
-    └─ @claude_bot (작업) ─── Claude Code 풀 세션
+Telegram (DM or Group)
+    ├─ Management bot ── /new, /stop, /switch, /clear, /logs ...
+    └─ Claude bot     ── Full Claude Code session
 
-맥미니 (codegate 상주)
-    ├─ codegate 프로세스 → 텔레그램 폴링 → 명령 수신 → tmux 세션 관리
+Server (codegate daemon)
+    ├─ codegate process → Telegram polling → command dispatch → tmux session management
     └─ tmux sessions
         ├─ cg-myapp   → claude --channels plugin:telegram@...
-        └─ cg-backend → claude --channels plugin:telegram@...
+        └─ cg-backend → claude --channels plugin:telegram@... --continue
 ```
+
+### How it works
+
+1. codegate runs as a background daemon, polling Telegram for commands via the management bot.
+2. On `/new`, it spawns a **tmux session** and starts `claude --channels plugin:telegram` inside it — this connects the Claude bot to Telegram.
+3. On `/switch`, it kills the current tmux session and starts a new one with `--continue`, which resumes the previous conversation in that project directory.
+4. On `/logs`, it captures the tmux pane output (`tmux capture-pane`) so you can see what Claude Code is doing when it stops responding.
+5. On `/clear`, it restarts the session without `--continue`, starting a fresh conversation.
+
+All session isolation is handled by tmux — each project runs in its own `cg-<name>` session, and the management bot orchestrates their lifecycle.
 
 ## Installation
 
@@ -31,57 +43,136 @@ make install
 
 ### From release
 
-[Releases](https://github.com/ljdongz/codegate/releases)에서 바이너리를 다운로드하세요.
+Download binaries from [Releases](https://github.com/ljdongz/codegate/releases).
 
 ## Setup
 
-### Option A: Claude Code로 셋업 (추천)
+### Prerequisites
 
-Claude Code에서 다음을 입력하세요:
+- `claude` CLI installed and logged in (`claude /login`)
+- `tmux` installed
+- `bun` installed (runtime for Claude Code Telegram plugin)
+- Telegram plugin installed (`claude plugin install telegram@claude-plugins-official`)
+- 2 Telegram bots created via BotFather (one for management, one for Claude)
+- Your Telegram user ID (check via @userinfobot)
+
+### Option A: Setup with Claude Code (recommended)
+
+Type the following in Claude Code:
 
 ```
-@SETUP.md 를 따라 codegate를 세팅해줘
+@SETUP.md Follow this guide to set up codegate
 ```
 
-의존성 설치, 플러그인 설치, 설정 파일 생성을 Claude Code가 안내합니다.
-
-### Option B: CLI로 직접 셋업
+### Option B: CLI setup
 
 ```bash
 codegate setup
 ```
 
-사전 준비:
-- `claude` CLI 설치 및 로그인 (`claude /login`)
-- `tmux` 설치
-- `bun` 설치 (Claude Code 텔레그램 플러그인 런타임)
-- 텔레그램 플러그인 설치 (`claude /plugin install telegram@claude-plugins-official`)
-- BotFather에서 봇 2개 생성 (관리용, Claude용)
-- 텔레그램 user ID (@userinfobot에서 확인)
-
 ## Usage
 
-### CLI
+### Usage modes
 
-| 명령어 | 설명 |
-|--------|------|
-| `codegate start` | 백그라운드 실행 |
-| `codegate stop` | 중단 |
-| `codegate restart` | 재시작 |
-| `codegate status` | 실행 상태 확인 |
-| `codegate logs` | 로그 보기 |
-| `codegate run` | 포그라운드 실행 |
+codegate supports two usage modes:
 
-### Telegram
+#### 1. Direct DM
 
-| 명령어 | 설명 |
-|--------|------|
-| `/new <name> [path]` | 새 세션 시작 |
-| `/stop` | 활성 세션 종료 |
-| `/list` | 활성 세션 목록 |
-| `/status` | 상세 상태 |
-| `/switch <name> [path]` | 세션 전환 |
-| `/help` | 도움말 |
+Send messages to each bot via individual DMs.
+
+- **Management bot DM**: `/new`, `/switch`, `/stop` and other session commands
+- **Claude bot DM**: Chat directly with Claude Code
+
+No additional setup required.
+
+#### 2. Group channel
+
+Invite both bots into a single group chat.
+
+**Group setup:**
+
+1. **Create a group** and invite both bots (management bot and Claude bot).
+
+2. **Disable Bot Privacy Mode** (via BotFather)
+   - `/mybots` → select bot → Bot Settings → Group Privacy → **Disable**
+   - Must be configured for both bots.
+   - Bots cannot read group messages when Privacy Mode is enabled.
+
+3. **Chat History setting** (in group settings)
+   - Group settings → Chat History for New Members → **Visible**
+   - Without this, bots cannot see messages sent before they joined.
+
+4. **Register the group** (send to management bot in the group)
+   ```
+   /groupadd
+   ```
+   Adds the group to the Claude bot's allow list.
+
+5. **Mention rules**
+   - Management bot: Append the bot name to slash commands (e.g., `/new@yourbotname ~/myapp`)
+   - Claude bot: Must be mentioned to respond in groups.
+
+**Remove group:**
+```
+/groupremove
+```
+
+### CLI commands
+
+| Command | Description |
+|---------|-------------|
+| `codegate setup` | Initial setup |
+| `codegate start` | Run in background |
+| `codegate stop` | Stop daemon |
+| `codegate restart` | Restart daemon |
+| `codegate status` | Check running status |
+| `codegate logs` | View logs |
+| `codegate run` | Run in foreground |
+
+### Management bot Telegram commands
+
+| Command | Description |
+|---------|-------------|
+| `/new <path>` | Start a new Claude session (path must exist) |
+| `/stop` | Stop active sessions |
+| `/list` | List active sessions |
+| `/status` | Show status and default project |
+| `/switch <path> [new]` | Switch session (resumes by default, `new` for fresh) |
+| `/clear` | Restart current session (fresh conversation) |
+| `/mkdir <path>` | Create a directory |
+| `/ls [flags] [path]` | List directory contents (default: ~) |
+| `/logs [lines]` | Show Claude session logs (default: 50, max: 200) |
+| `/groupadd` | Add current group to Claude bot allow list |
+| `/groupremove` | Remove current group from allow list |
+| `/help` | Show help |
+
+### Example workflow
+
+```
+# Start a Claude Code session (path must exist; use /mkdir if needed)
+/new ~/myapp
+
+# Ask Claude bot to work (via DM or mention in group)
+@claudebot Create API endpoints
+
+# Switch to another project (previous conversation preserved)
+/switch ~/backend
+
+# Switch back (resumes previous conversation)
+/switch ~/myapp
+
+# Switch with a fresh conversation
+/switch ~/myapp new
+
+# Check logs when Claude is not responding
+/logs
+
+# Restart session
+/clear
+
+# Stop session
+/stop
+```
 
 ## Config
 
@@ -89,13 +180,25 @@ codegate setup
 
 ```yaml
 telegram:
-  token: "관리봇토큰"
+  token: "management-bot-token"
   allowed_users:
     - 123456789
-claude_bot_token: "클로드봇토큰"
+claude_bot_token: "claude-bot-token"
 max_sessions: 5
 skip_permissions: true
 ```
+
+| Field | Description |
+|-------|-------------|
+| `telegram.token` | Management bot token (from BotFather) |
+| `telegram.allowed_users` | Allowed Telegram user IDs |
+| `claude_bot_token` | Claude bot token (from BotFather) |
+| `max_sessions` | Maximum concurrent sessions |
+| `skip_permissions` | Enable `--dangerously-skip-permissions` |
+
+## Documentation
+
+- [한국어 문서](docs/README.ko.md)
 
 ## License
 

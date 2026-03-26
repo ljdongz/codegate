@@ -1,71 +1,71 @@
 # codegate Setup Guide (for Claude Code)
 
-Claude Code에서 이 파일을 참고해서 codegate 초기 설정을 진행합니다.
+Claude Code references this file to perform the initial codegate setup.
 
-## 1. 의존성 설치
+## 1. Install dependencies
 
 ### tmux
-- `which tmux`로 설치 여부 확인
-- 없으면: `brew install tmux`
+- Check with `which tmux`
+- If not installed: `brew install tmux`
 
 ### bun
-- `which bun`으로 설치 여부 확인
-- 없으면: `curl -fsSL https://bun.sh/install | bash`
-- 설치 후 `source ~/.zshrc` (또는 `source ~/.bashrc`)
+- Check with `which bun`
+- If not installed: `curl -fsSL https://bun.sh/install | bash`
+- After installation: `source ~/.zshrc` (or `source ~/.bashrc`)
 
-## 2. 텔레그램 플러그인 설치
+## 2. Install Telegram plugin
 
-- Claude Code에서 `/plugin install telegram@claude-plugins-official` 실행
+- Run `/plugin install telegram@claude-plugins-official` in Claude Code
 
-## 3. 텔레그램 봇 생성
+## 3. Create Telegram bots
 
-사용자에게 다음을 안내하고 토큰을 입력받습니다:
+Guide the user through the following and collect tokens:
 
-1. 텔레그램에서 @BotFather에게 `/newbot` 전송
-2. **관리 봇** 생성 (예: codegate_bot) → 토큰 받기
-3. **Claude 봇** 생성 (예: my_claude_bot) → 토큰 받기
-4. 텔레그램에서 @userinfobot에게 메시지 전송 → user ID 확인
+1. Send `/newbot` to @BotFather on Telegram
+2. Create a **management bot** (e.g., codegate_bot) → copy the token
+3. Create a **Claude bot** (e.g., my_claude_bot) → copy the token
+4. Send any message to @userinfobot on Telegram → note the user ID
 
-## 4. 설정 파일 생성
+## 4. Create config files
 
-입력받은 정보로 다음 파일들을 생성합니다:
+Generate the following files using the collected information:
 
-### ~/.codegate/config.yaml (퍼미션 0600)
+### ~/.codegate/config.yaml (permissions 0600)
 ```yaml
 telegram:
-  token: "<관리봇 토큰>"
+  token: "<management bot token>"
   allowed_users:
     - <user ID>
-claude_bot_token: "<Claude봇 토큰>"
+claude_bot_token: "<Claude bot token>"
 max_sessions: 5
 skip_permissions: true
 ```
 
-### ~/.claude/channels/telegram/.env (퍼미션 0600)
+### ~/.claude/channels/telegram/.env (permissions 0600)
 ```
-TELEGRAM_BOT_TOKEN=<Claude봇 토큰>
+TELEGRAM_BOT_TOKEN=<Claude bot token>
 ```
 
-### ~/.claude/channels/telegram/access.json (퍼미션 0600)
+### ~/.claude/channels/telegram/access.json (permissions 0600)
 ```json
 {"dmPolicy":"allowlist","allowFrom":["<user ID>"]}
 ```
 
-## 5. codegate 설치
+## 5. Install codegate
 
 ```bash
 go install github.com/ljdongz/codegate/cmd/codegate@latest
 ```
 
-또는 소스에서:
+Or from source:
 ```bash
 git clone https://github.com/ljdongz/codegate.git
 cd codegate
 make install
 ```
 
-## 6. 완료
+## 6. Done
 
-사용자에게 안내:
-- `codegate start`로 봇을 시작하세요
-- 텔레그램에서 `/new <프로젝트명>`으로 Claude 세션을 시작할 수 있습니다
+Inform the user:
+- Start the bot with `codegate start`
+- Start a Claude session on Telegram with `/new <path>`
