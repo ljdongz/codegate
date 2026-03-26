@@ -306,21 +306,25 @@ func (b *Bot) handleGroupAdd(msg *tgbotapi.Message) {
 		return
 	}
 
-	for _, g := range access.AllowGroups {
-		if g == groupID {
-			b.reply(msg.Chat.ID, "This group is already in the allow list.")
-			return
-		}
+	if access.Groups == nil {
+		access.Groups = make(map[string]groupConfig)
 	}
 
-	access.GroupPolicy = "allowlist"
-	access.AllowGroups = append(access.AllowGroups, groupID)
+	if _, exists := access.Groups[groupID]; exists {
+		b.reply(msg.Chat.ID, "This group is already in the allow list.")
+		return
+	}
+
+	access.Groups[groupID] = groupConfig{
+		RequireMention: true,
+		AllowFrom:      []string{},
+	}
 	if err := saveAccessJSON(access); err != nil {
 		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to save access.json: %v", err))
 		return
 	}
 
-	b.reply(msg.Chat.ID, fmt.Sprintf("Group added (ID: %s). Restart the session for changes to take effect.", groupID))
+	b.reply(msg.Chat.ID, fmt.Sprintf("Group added (ID: %s, requireMention: true). Restart the session with /stop + /new.", groupID))
 }
 
 func (b *Bot) handleGroupRemove(msg *tgbotapi.Message) {
@@ -336,34 +340,29 @@ func (b *Bot) handleGroupRemove(msg *tgbotapi.Message) {
 		return
 	}
 
-	found := false
-	var filtered []string
-	for _, g := range access.AllowGroups {
-		if g == groupID {
-			found = true
-		} else {
-			filtered = append(filtered, g)
-		}
-	}
-	if !found {
+	if _, exists := access.Groups[groupID]; !exists {
 		b.reply(msg.Chat.ID, "This group is not in the allow list.")
 		return
 	}
 
-	access.AllowGroups = filtered
+	delete(access.Groups, groupID)
 	if err := saveAccessJSON(access); err != nil {
 		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to save access.json: %v", err))
 		return
 	}
 
-	b.reply(msg.Chat.ID, fmt.Sprintf("Group removed (ID: %s). Restart the session for changes to take effect.", groupID))
+	b.reply(msg.Chat.ID, fmt.Sprintf("Group removed (ID: %s). Restart the session with /stop + /new.", groupID))
+}
+
+type groupConfig struct {
+	RequireMention bool     `json:"requireMention"`
+	AllowFrom      []string `json:"allowFrom"`
 }
 
 type accessConfig struct {
-	DMPolicy    string   `json:"dmPolicy"`
-	AllowFrom   []string `json:"allowFrom"`
-	GroupPolicy string   `json:"groupPolicy,omitempty"`
-	AllowGroups []string `json:"allowGroups,omitempty"`
+	DMPolicy  string                 `json:"dmPolicy"`
+	AllowFrom []string               `json:"allowFrom"`
+	Groups    map[string]groupConfig `json:"groups,omitempty"`
 }
 
 func accessJSONPath() (string, error) {
