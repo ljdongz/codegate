@@ -22,6 +22,7 @@ type SessionManager interface {
 	List() ([]session.SessionInfo, error)
 	Switch(name, projectPath string) error
 	StopAll() error
+	Logs(name string, lines int) (string, error)
 }
 
 var projectNameRe = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
@@ -61,6 +62,7 @@ func (b *Bot) registerCommands() {
 		tgbotapi.BotCommand{Command: "ls", Description: "디렉토리 목록 — /ls [flags] [path]"},
 		tgbotapi.BotCommand{Command: "groupadd", Description: "이 그룹을 Claude 봇 허용 목록에 추가"},
 		tgbotapi.BotCommand{Command: "groupremove", Description: "이 그룹을 Claude 봇 허용 목록에서 제거"},
+		tgbotapi.BotCommand{Command: "logs", Description: "Claude 세션 로그 확인 — /logs [lines]"},
 		tgbotapi.BotCommand{Command: "help", Description: "도움말"},
 	)
 	b.api.Request(cmds) //nolint:errcheck
@@ -154,6 +156,8 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 		b.handleGroupAdd(msg)
 	case "groupremove":
 		b.handleGroupRemove(msg)
+	case "logs":
+		b.handleLogs(msg.Chat.ID, msg.From.ID, args)
 	case "help":
 		b.reply(msg.Chat.ID, helpText())
 	}
@@ -313,6 +317,40 @@ func (b *Bot) handleLs(chatID int64, args []string) {
 	}
 
 	b.reply(chatID, fmt.Sprintf("$ ls %s\n```\n%s```", strings.Join(append(flags, dir), " "), string(out)))
+}
+
+func (b *Bot) handleLogs(chatID int64, userID int64, args []string) {
+	lines := 50
+	if len(args) >= 1 {
+		if n, err := strconv.Atoi(args[0]); err == nil && n > 0 {
+			if n > 200 {
+				n = 200
+			}
+			lines = n
+		}
+	}
+
+	b.mu.RLock()
+	def := b.defaultProject[userID]
+	b.mu.RUnlock()
+
+	if def == "" {
+		b.reply(chatID, "No active session. Start one with /new first.")
+		return
+	}
+
+	output, err := b.sm.Logs(def, lines)
+	if err != nil {
+		b.reply(chatID, fmt.Sprintf("Failed to get logs: %v", err))
+		return
+	}
+
+	if output == "" {
+		b.reply(chatID, "No log output available.")
+		return
+	}
+
+	b.reply(chatID, fmt.Sprintf("Logs for session %q (last %d lines):\n```\n%s\n```", def, lines, output))
 }
 
 func (b *Bot) handleGroupAdd(msg *tgbotapi.Message) {
@@ -510,5 +548,6 @@ func helpText() string {
   /ls [flags] [path]    List directory contents (default: ~)
   /groupadd             Allow this group for Claude bot (run in group)
   /groupremove          Remove this group from allow list (run in group)
+  /logs [lines]         Show Claude session logs (default: 50, max: 200)
   /help                 Show this help`
 }

@@ -67,6 +67,22 @@ func (m *Manager) StopAll() error {
 	return m.stopAllSessions()
 }
 
+func (m *Manager) Logs(name string, lines int) (string, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	sessionName := "cg-" + name
+	if !tmuxSessionExists(sessionName) {
+		return "", fmt.Errorf("session %q does not exist", name)
+	}
+
+	out, err := exec.Command("tmux", "capture-pane", "-t", sessionName, "-p", "-S", fmt.Sprintf("-%d", lines)).Output()
+	if err != nil {
+		return "", fmt.Errorf("capturing pane output: %w", err)
+	}
+	return strings.TrimRight(string(out), "\n"), nil
+}
+
 func (m *Manager) startSession(name, projectPath string) error {
 	sessionName := "cg-" + name
 
