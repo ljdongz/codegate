@@ -77,7 +77,7 @@ codegate setup
 | 명령어 | 설명 |
 |--------|------|
 | `/new <name> [path]` | 새 세션 시작 |
-| `/stop <name>` | 세션 종료 |
+| `/stop` | 활성 세션 종료 |
 | `/list` | 활성 세션 목록 |
 | `/status` | 상세 상태 |
 | `/switch <name> [path]` | 세션 전환 |

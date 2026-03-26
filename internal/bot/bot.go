@@ -50,7 +50,7 @@ func New(token string, sm SessionManager, allowedUsers []int64) (*Bot, error) {
 func (b *Bot) registerCommands() {
 	cmds := tgbotapi.NewSetMyCommands(
 		tgbotapi.BotCommand{Command: "new", Description: "새 Claude 세션 시작 — /new <name> [path]"},
-		tgbotapi.BotCommand{Command: "stop", Description: "세션 종료 — /stop <name>"},
+		tgbotapi.BotCommand{Command: "stop", Description: "활성 세션 종료"},
 		tgbotapi.BotCommand{Command: "list", Description: "활성 세션 목록"},
 		tgbotapi.BotCommand{Command: "status", Description: "상태 및 기본 프로젝트"},
 		tgbotapi.BotCommand{Command: "switch", Description: "세션 전환 — /switch <name> [path]"},
@@ -111,7 +111,7 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 	case "new":
 		b.handleNew(msg.Chat.ID, msg.From.ID, args)
 	case "stop":
-		b.handleStop(msg.Chat.ID, msg.From.ID, args)
+		b.handleStop(msg.Chat.ID, msg.From.ID)
 	case "list":
 		b.handleList(msg.Chat.ID)
 	case "status":
@@ -145,25 +145,31 @@ func (b *Bot) handleNew(chatID int64, userID int64, args []string) {
 	b.reply(chatID, fmt.Sprintf("Session %q started at %s.", name, path))
 }
 
-func (b *Bot) handleStop(chatID int64, userID int64, args []string) {
-	if len(args) < 1 {
-		b.reply(chatID, "Usage: /stop <name>")
+func (b *Bot) handleStop(chatID int64, userID int64) {
+	sessions, err := b.sm.List()
+	if err != nil {
+		b.reply(chatID, fmt.Sprintf("Failed to list sessions: %v", err))
 		return
 	}
-	name := args[0]
+	if len(sessions) == 0 {
+		b.reply(chatID, "No active sessions.")
+		return
+	}
 
-	if err := b.sm.Stop(name); err != nil {
-		b.reply(chatID, fmt.Sprintf("Failed to stop session %q: %v", name, err))
+	if err := b.sm.StopAll(); err != nil {
+		b.reply(chatID, fmt.Sprintf("Failed to stop sessions: %v", err))
 		return
 	}
 
 	b.mu.Lock()
-	if b.defaultProject[userID] == name {
-		delete(b.defaultProject, userID)
-	}
+	delete(b.defaultProject, userID)
 	b.mu.Unlock()
 
-	b.reply(chatID, fmt.Sprintf("Session %q stopped.", name))
+	if len(sessions) == 1 {
+		b.reply(chatID, fmt.Sprintf("Session %q stopped.", sessions[0].Name))
+	} else {
+		b.reply(chatID, fmt.Sprintf("%d sessions stopped.", len(sessions)))
+	}
 }
 
 func (b *Bot) handleList(chatID int64) {
@@ -304,7 +310,7 @@ func expandPath(p string) (string, error) {
 func helpText() string {
 	return `codegate commands:
   /new <name> [path]    Start a new Claude session
-  /stop <name>          Stop a session
+  /stop                 Stop active session
   /list                 List active sessions
   /status               Show status and default project
   /switch <name> [path] Switch to a different session
