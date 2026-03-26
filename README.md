@@ -8,6 +8,7 @@
   <a href="https://github.com/ljdongz/codegate/releases"><img src="https://img.shields.io/github/v/release/ljdongz/codegate" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-blue" alt="Platform">
+  <img src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" alt="Go">
 </p>
 
 A Telegram bot for remotely managing Claude Code Channel sessions.
