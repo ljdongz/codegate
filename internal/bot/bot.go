@@ -20,7 +20,7 @@ type SessionManager interface {
 	Start(name, projectPath string) error
 	Stop(name string) error
 	List() ([]session.SessionInfo, error)
-	Switch(name, projectPath string) error
+	Switch(name, projectPath string, resume bool) error
 	StopAll() error
 	Clear(name string) error
 	Logs(name string, lines int) (string, error)
@@ -59,7 +59,7 @@ func (b *Bot) registerCommands() {
 		tgbotapi.BotCommand{Command: "stop", Description: "활성 세션 종료"},
 		tgbotapi.BotCommand{Command: "list", Description: "활성 세션 목록"},
 		tgbotapi.BotCommand{Command: "status", Description: "상태 및 기본 프로젝트"},
-		tgbotapi.BotCommand{Command: "switch", Description: "세션 전환 — /switch <path>"},
+		tgbotapi.BotCommand{Command: "switch", Description: "세션 전환 — /switch <path> [new]"},
 		tgbotapi.BotCommand{Command: "ls", Description: "디렉토리 목록 — /ls [flags] [path]"},
 		tgbotapi.BotCommand{Command: "groupadd", Description: "이 그룹을 Claude 봇 허용 목록에 추가"},
 		tgbotapi.BotCommand{Command: "groupremove", Description: "이 그룹을 Claude 봇 허용 목록에서 제거"},
@@ -284,7 +284,7 @@ func (b *Bot) handleStatus(chatID int64, userID int64) {
 
 func (b *Bot) handleSwitch(chatID int64, userID int64, args []string) {
 	if len(args) < 1 {
-		b.reply(chatID, "Usage: /switch <path>")
+		b.reply(chatID, "Usage: /switch <path> [new]")
 		return
 	}
 
@@ -300,7 +300,12 @@ func (b *Bot) handleSwitch(chatID int64, userID int64, args []string) {
 		return
 	}
 
-	if err := b.sm.Switch(name, path); err != nil {
+	resume := true
+	if len(args) >= 2 && args[1] == "new" {
+		resume = false
+	}
+
+	if err := b.sm.Switch(name, path, resume); err != nil {
 		b.reply(chatID, fmt.Sprintf("Failed to switch to session %q: %v", name, err))
 		return
 	}
@@ -309,7 +314,11 @@ func (b *Bot) handleSwitch(chatID int64, userID int64, args []string) {
 	b.defaultProject[userID] = name
 	b.mu.Unlock()
 
-	b.reply(chatID, fmt.Sprintf("Switched to session %q at %s.", name, path))
+	mode := "resumed"
+	if !resume {
+		mode = "new"
+	}
+	b.reply(chatID, fmt.Sprintf("Switched to session %q at %s (%s).", name, path, mode))
 }
 
 func (b *Bot) handleLs(chatID int64, args []string) {
@@ -582,7 +591,7 @@ func helpText() string {
   /stop                 Stop active session
   /list                 List active sessions
   /status               Show status and default project
-  /switch <path>        Switch to a different session
+  /switch <path> [new]  Switch session (resumes by default, "new" for fresh)
   /mkdir <path>         Create a directory
   /clear                Restart current session
   /ls [flags] [path]    List directory contents (default: ~)

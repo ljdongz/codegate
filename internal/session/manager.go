@@ -37,7 +37,7 @@ type SessionInfo struct {
 func (m *Manager) Start(name, projectPath string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.startSession(name, projectPath)
+	return m.startSession(name, projectPath, false)
 }
 
 func (m *Manager) Stop(name string) error {
@@ -52,13 +52,13 @@ func (m *Manager) List() ([]SessionInfo, error) {
 	return listSessions()
 }
 
-func (m *Manager) Switch(name, projectPath string) error {
+func (m *Manager) Switch(name, projectPath string, resume bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := m.stopAllSessions(); err != nil {
 		return err
 	}
-	return m.startSession(name, projectPath)
+	return m.startSession(name, projectPath, resume)
 }
 
 func (m *Manager) StopAll() error {
@@ -85,7 +85,7 @@ func (m *Manager) Clear(name string) error {
 	if err := stopSession(name); err != nil {
 		return err
 	}
-	return m.startSession(name, projectPath)
+	return m.startSession(name, projectPath, false)
 }
 
 func (m *Manager) Logs(name string, lines int) (string, error) {
@@ -104,7 +104,7 @@ func (m *Manager) Logs(name string, lines int) (string, error) {
 	return strings.TrimRight(string(out), "\n"), nil
 }
 
-func (m *Manager) startSession(name, projectPath string) error {
+func (m *Manager) startSession(name, projectPath string, resume bool) error {
 	sessionName := "cg-" + name
 
 	if tmuxSessionExists(sessionName) {
@@ -136,6 +136,9 @@ func (m *Manager) startSession(name, projectPath string) error {
 	}
 
 	claudeCmd := "cd '" + shellEscape(projectPath) + "' && claude --channels plugin:telegram@claude-plugins-official"
+	if resume {
+		claudeCmd += " --continue"
+	}
 	if m.skipPermissions {
 		claudeCmd += " --dangerously-skip-permissions"
 	}
