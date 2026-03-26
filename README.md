@@ -2,17 +2,17 @@
 
 텔레그램에서 Claude Code Channel 세션을 원격으로 관리하는 봇.
 
-`/codegate new myapp` 한 줄로 Claude Code 풀 세션(Skills, OMC, MCP 지원)을 텔레그램에서 시작할 수 있습니다.
+`/new myapp` 한 줄로 Claude Code 풀 세션(Skills, OMC, MCP 지원)을 텔레그램에서 시작할 수 있습니다.
 
 ## Architecture
 
 ```
 텔레그램 그룹
-    ├─ @codegate_bot (관리) ── /codegate new, /codegate stop, /codegate list, /codegate switch
+    ├─ @codegate_bot (관리) ── /new, /stop, /list, /switch
     └─ @claude_bot (작업) ─── Claude Code 풀 세션
 
 맥미니 (codegate 상주)
-    ├─ codegate 프로세스 → 텔레그램 폴링 → /codegate 명령 → tmux 세션 관리
+    ├─ codegate 프로세스 → 텔레그램 폴링 → 명령 수신 → tmux 세션 관리
     └─ tmux sessions
         ├─ cg-myapp   → claude --channels plugin:telegram@...
         └─ cg-backend → claude --channels plugin:telegram@...
@@ -76,11 +76,12 @@ codegate setup
 
 | 명령어 | 설명 |
 |--------|------|
-| `/codegate new <name> [path]` | 새 세션 시작 |
-| `/codegate stop <name>` | 세션 종료 |
-| `/codegate list` | 활성 세션 목록 |
-| `/codegate status` | 상세 상태 |
-| `/codegate switch <name> [path]` | 세션 전환 |
+| `/new <name> [path]` | 새 세션 시작 |
+| `/stop <name>` | 세션 종료 |
+| `/list` | 활성 세션 목록 |
+| `/status` | 상세 상태 |
+| `/switch <name> [path]` | 세션 전환 |
+| `/help` | 도움말 |
 
 ## Config
 

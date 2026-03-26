@@ -49,7 +49,12 @@ func New(token string, sm SessionManager, allowedUsers []int64) (*Bot, error) {
 
 func (b *Bot) registerCommands() {
 	cmds := tgbotapi.NewSetMyCommands(
-		tgbotapi.BotCommand{Command: "codegate", Description: "Claude Code 세션 관리 (new, stop, list, status, switch)"},
+		tgbotapi.BotCommand{Command: "new", Description: "새 Claude 세션 시작 — /new <name> [path]"},
+		tgbotapi.BotCommand{Command: "stop", Description: "세션 종료 — /stop <name>"},
+		tgbotapi.BotCommand{Command: "list", Description: "활성 세션 목록"},
+		tgbotapi.BotCommand{Command: "status", Description: "상태 및 기본 프로젝트"},
+		tgbotapi.BotCommand{Command: "switch", Description: "세션 전환 — /switch <name> [path]"},
+		tgbotapi.BotCommand{Command: "help", Description: "도움말"},
 	)
 	b.api.Request(cmds) //nolint:errcheck
 }
@@ -73,8 +78,8 @@ func (b *Bot) Start() error {
 			if !b.isAllowed(update.Message.From.ID) {
 				continue
 			}
-			if update.Message.IsCommand() && update.Message.Command() == "codegate" {
-				b.handleCG(update.Message)
+			if update.Message.IsCommand() {
+				b.handleCommand(update.Message)
 			}
 		case <-b.stopCh:
 			return nil
@@ -99,33 +104,28 @@ func (b *Bot) isAllowed(userID int64) bool {
 	return false
 }
 
-func (b *Bot) handleCG(msg *tgbotapi.Message) {
+func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 	args := strings.Fields(msg.CommandArguments())
 
-	if len(args) == 0 || args[0] == "help" {
-		b.reply(msg.Chat.ID, helpText())
-		return
-	}
-
-	switch args[0] {
+	switch msg.Command() {
 	case "new":
-		b.handleNew(msg.Chat.ID, msg.From.ID, args[1:])
+		b.handleNew(msg.Chat.ID, msg.From.ID, args)
 	case "stop":
-		b.handleStop(msg.Chat.ID, msg.From.ID, args[1:])
+		b.handleStop(msg.Chat.ID, msg.From.ID, args)
 	case "list":
 		b.handleList(msg.Chat.ID)
 	case "status":
 		b.handleStatus(msg.Chat.ID, msg.From.ID)
 	case "switch":
-		b.handleSwitch(msg.Chat.ID, msg.From.ID, args[1:])
-	default:
-		b.reply(msg.Chat.ID, fmt.Sprintf("Unknown command %q. Use /codegate help.", args[0]))
+		b.handleSwitch(msg.Chat.ID, msg.From.ID, args)
+	case "help":
+		b.reply(msg.Chat.ID, helpText())
 	}
 }
 
 func (b *Bot) handleNew(chatID int64, userID int64, args []string) {
 	if len(args) < 1 {
-		b.reply(chatID, "Usage: /codegate new <name> [path]")
+		b.reply(chatID, "Usage: /new <name> [path]")
 		return
 	}
 	name, path, ok := b.resolveNamePath(chatID, args)
@@ -147,7 +147,7 @@ func (b *Bot) handleNew(chatID int64, userID int64, args []string) {
 
 func (b *Bot) handleStop(chatID int64, userID int64, args []string) {
 	if len(args) < 1 {
-		b.reply(chatID, "Usage: /codegate stop <name>")
+		b.reply(chatID, "Usage: /stop <name>")
 		return
 	}
 	name := args[0]
@@ -223,7 +223,7 @@ func (b *Bot) handleStatus(chatID int64, userID int64) {
 
 func (b *Bot) handleSwitch(chatID int64, userID int64, args []string) {
 	if len(args) < 1 {
-		b.reply(chatID, "Usage: /codegate switch <name> [path]")
+		b.reply(chatID, "Usage: /switch <name> [path]")
 		return
 	}
 	name, path, ok := b.resolveNamePath(chatID, args)
@@ -243,9 +243,6 @@ func (b *Bot) handleSwitch(chatID int64, userID int64, args []string) {
 	b.reply(chatID, fmt.Sprintf("Switched to session %q at %s.", name, path))
 }
 
-// resolveNamePath validates the project name in args[0] and resolves the path
-// from args[1] (if provided) or defaults to ~/Dev/<name>.
-// Returns (name, path, true) on success, or sends an error reply and returns ("", "", false).
 func (b *Bot) resolveNamePath(chatID int64, args []string) (string, string, bool) {
 	name := args[0]
 	if !projectNameRe.MatchString(name) {
@@ -278,7 +275,6 @@ func (b *Bot) reply(chatID int64, text string) {
 	}
 }
 
-// splitMessage splits text into parts no longer than maxLen, preferring newline boundaries.
 func splitMessage(text string, maxLen int) []string {
 	if len(text) <= maxLen {
 		return []string{text}
@@ -306,11 +302,11 @@ func expandPath(p string) (string, error) {
 }
 
 func helpText() string {
-	return `codegate bot commands:
-  /codegate new <name> [path]    Start a new Claude session
-  /codegate stop <name>          Stop a session
-  /codegate list                 List active sessions
-  /codegate status               Show status and default project
-  /codegate switch <name> [path] Switch to a different session
-  /codegate help                 Show this help`
+	return `codegate commands:
+  /new <name> [path]    Start a new Claude session
+  /stop <name>          Stop a session
+  /list                 List active sessions
+  /status               Show status and default project
+  /switch <name> [path] Switch to a different session
+  /help                 Show this help`
 }

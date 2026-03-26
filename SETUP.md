@@ -68,4 +68,4 @@ make install
 
 사용자에게 안내:
 - `codegate start`로 봇을 시작하세요
-- 텔레그램에서 `/codegate new <프로젝트명>`으로 Claude 세션을 시작할 수 있습니다
+- 텔레그램에서 `/new <프로젝트명>`으로 Claude 세션을 시작할 수 있습니다
