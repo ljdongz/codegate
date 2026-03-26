@@ -100,13 +100,30 @@ func (b *Bot) Stop() {
 }
 
 func (b *Bot) isCommandForMe(msg *tgbotapi.Message) bool {
-	// DM: always process
 	if msg.Chat.Type == "private" {
 		return true
 	}
-	// Group: only process if command is addressed to this bot (@botname)
+
 	botName := b.api.Self.UserName
-	return msg.CommandWithAt() == msg.Command()+"@"+botName
+
+	// /help@codegatebot_bot (no space)
+	if msg.CommandWithAt() == msg.Command()+"@"+botName {
+		return true
+	}
+
+	// /help @codegatebot_bot (with space) — check mention entities
+	if msg.Entities != nil {
+		for _, e := range msg.Entities {
+			if e.Type == "mention" {
+				mention := msg.Text[e.Offset : e.Offset+e.Length]
+				if mention == "@"+botName {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
 }
 
 func (b *Bot) isAllowed(userID int64) bool {
