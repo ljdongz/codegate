@@ -254,9 +254,18 @@ func (b *Bot) handleSwitch(chatID int64, userID int64, args []string) {
 }
 
 func (b *Bot) handleLs(chatID int64, args []string) {
-	dir := "~"
-	if len(args) >= 1 {
-		dir = args[0]
+	// Separate flags and path from args
+	var flags []string
+	var dir string
+	for _, a := range args {
+		if strings.HasPrefix(a, "-") {
+			flags = append(flags, a)
+		} else if dir == "" {
+			dir = a
+		}
+	}
+	if dir == "" {
+		dir = "~"
 	}
 
 	expanded, err := expandPath(dir)
@@ -265,13 +274,14 @@ func (b *Bot) handleLs(chatID int64, args []string) {
 		return
 	}
 
-	out, err := exec.Command("ls", "-al", expanded).CombinedOutput()
+	lsArgs := append(flags, expanded)
+	out, err := exec.Command("ls", lsArgs...).CombinedOutput()
 	if err != nil {
-		b.reply(chatID, fmt.Sprintf("ls %s failed: %s", dir, string(out)))
+		b.reply(chatID, fmt.Sprintf("ls %s failed: %s", strings.Join(args, " "), string(out)))
 		return
 	}
 
-	b.reply(chatID, fmt.Sprintf("$ ls -al %s\n```\n%s```", dir, string(out)))
+	b.reply(chatID, fmt.Sprintf("$ ls %s\n```\n%s```", strings.Join(append(flags, dir), " "), string(out)))
 }
 
 func (b *Bot) resolveNamePath(chatID int64, args []string) (string, string, bool) {
