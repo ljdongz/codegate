@@ -17,6 +17,15 @@ Claude Code's [Channel](https://docs.anthropic.com/en/docs/claude-code/channels)
 
 codegate solves this by acting as a single management bot that handles the full lifecycle of Claude Code sessions — start, stop, switch, and resume — all from Telegram. One management bot, one Claude bot, unlimited projects.
 
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Installation](#installation)
+- [Setup](#setup)
+- [Usage](#usage)
+- [Config](#config)
+- [License](#license)
+
 ## Architecture
 
 ```

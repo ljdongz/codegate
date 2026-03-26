@@ -1,10 +1,30 @@
 # codegate
 
+<p align="center">
+  <a href="../README.md">🇺🇸 English</a> | 🇰🇷 한국어
+</p>
+
+<p align="center">
+  <a href="https://github.com/ljdongz/codegate/releases"><img src="https://img.shields.io/github/v/release/ljdongz/codegate" alt="Release"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-blue" alt="Platform">
+  <img src="https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white" alt="Go">
+</p>
+
 텔레그램에서 Claude Code Channel 세션을 원격으로 관리하는 봇.
 
 Claude Code의 [Channel](https://docs.anthropic.com/en/docs/claude-code/channels) 기능을 사용하면 텔레그램으로 Claude Code 세션과 대화할 수 있습니다. 하지만 세션마다 로컬에서 직접 시작하고 관리해야 하며, 여러 프로젝트를 텔레그램에 연동하려면 프로젝트별로 봇을 따로 만들어야 합니다.
 
 codegate는 하나의 관리 봇으로 Claude Code 세션의 전체 라이프사이클(시작, 종료, 전환, 재개)을 텔레그램에서 제어할 수 있게 해줍니다. 관리 봇 하나, Claude 봇 하나로 무제한 프로젝트를 관리할 수 있습니다.
+
+## 목차
+
+- [Architecture](#architecture)
+- [설치](#설치)
+- [설정](#설정)
+- [사용법](#사용법)
+- [설정 파일](#설정-파일)
+- [라이선스](#라이선스)
 
 ## Architecture
 
