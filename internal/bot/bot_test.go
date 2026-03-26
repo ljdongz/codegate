@@ -97,6 +97,29 @@ func TestExpandPath(t *testing.T) {
 			t.Errorf("expected %q, got %q", path, result)
 		}
 	})
+
+	t.Run("relative path resolves from home", func(t *testing.T) {
+		result, err := expandPath("Dev")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.HasSuffix(result, "/Dev") {
+			t.Errorf("expected suffix /Dev, got %q", result)
+		}
+		if strings.HasPrefix(result, "Dev") {
+			t.Errorf("relative path was not resolved: %q", result)
+		}
+	})
+
+	t.Run("dot-slash relative path resolves from home", func(t *testing.T) {
+		result, err := expandPath("./Dev")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.HasSuffix(result, "/Dev") {
+			t.Errorf("expected suffix /Dev, got %q", result)
+		}
+	})
 }
 
 func TestProjectNameRe(t *testing.T) {

@@ -322,14 +322,23 @@ func splitMessage(text string, maxLen int) []string {
 }
 
 func expandPath(p string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("getting home directory: %w", err)
+	}
+
 	if p == "~" || strings.HasPrefix(p, "~/") {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return "", fmt.Errorf("getting home directory: %w", err)
-		}
 		return home + p[1:], nil
 	}
-	return p, nil
+
+	// Absolute paths stay as-is
+	if strings.HasPrefix(p, "/") {
+		return p, nil
+	}
+
+	// Relative paths (e.g. "Dev", "./Dev") resolve from home directory
+	p = strings.TrimPrefix(p, "./")
+	return home + "/" + p, nil
 }
 
 func helpText() string {
