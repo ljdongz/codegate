@@ -96,18 +96,16 @@ func (m *Manager) startSession(name, projectPath string) error {
 		return fmt.Errorf("setting up telegram .env: %w", err)
 	}
 
-	envPrefix := ""
+	claudeCmd := ""
 	if m.claudeOAuthToken != "" {
-		envPrefix = "export CLAUDE_CODE_OAUTH_TOKEN='" + shellEscape(m.claudeOAuthToken) + "' && "
+		claudeCmd += "export CLAUDE_CODE_OAUTH_TOKEN='" + shellEscape(m.claudeOAuthToken) + "' && "
 	}
-
-	claudeCmd := envPrefix + "cd '" + shellEscape(projectPath) + "' && claude --channels plugin:telegram@claude-plugins-official"
+	claudeCmd += "cd '" + shellEscape(projectPath) + "' && claude --channels plugin:telegram@claude-plugins-official"
 	if m.skipPermissions {
 		claudeCmd += " --dangerously-skip-permissions"
 	}
 
-	shellCmd := "zsh -l -c " + "'" + shellEscape(claudeCmd) + "'"
-	if err := exec.Command("tmux", "new-session", "-d", "-s", sessionName, shellCmd).Run(); err != nil {
+	if err := exec.Command("tmux", "new-session", "-d", "-s", sessionName, claudeCmd).Run(); err != nil {
 		return fmt.Errorf("starting tmux session: %w", err)
 	}
 	return nil
