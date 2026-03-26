@@ -1,10 +1,13 @@
 package bot
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -56,6 +59,8 @@ func (b *Bot) registerCommands() {
 		tgbotapi.BotCommand{Command: "status", Description: "상태 및 기본 프로젝트"},
 		tgbotapi.BotCommand{Command: "switch", Description: "세션 전환 — /switch <name> [path]"},
 		tgbotapi.BotCommand{Command: "ls", Description: "디렉토리 목록 — /ls [flags] [path]"},
+		tgbotapi.BotCommand{Command: "groupadd", Description: "이 그룹을 Claude 봇 허용 목록에 추가"},
+		tgbotapi.BotCommand{Command: "groupremove", Description: "이 그룹을 Claude 봇 허용 목록에서 제거"},
 		tgbotapi.BotCommand{Command: "help", Description: "도움말"},
 	)
 	b.api.Request(cmds) //nolint:errcheck
@@ -122,6 +127,10 @@ func (b *Bot) handleCommand(msg *tgbotapi.Message) {
 		b.handleSwitch(msg.Chat.ID, msg.From.ID, args)
 	case "ls":
 		b.handleLs(msg.Chat.ID, args)
+	case "groupadd":
+		b.handleGroupAdd(msg)
+	case "groupremove":
+		b.handleGroupRemove(msg)
 	case "help":
 		b.reply(msg.Chat.ID, helpText())
 	}
@@ -283,6 +292,114 @@ func (b *Bot) handleLs(chatID int64, args []string) {
 	b.reply(chatID, fmt.Sprintf("$ ls %s\n```\n%s```", strings.Join(append(flags, dir), " "), string(out)))
 }
 
+func (b *Bot) handleGroupAdd(msg *tgbotapi.Message) {
+	if msg.Chat.Type == "private" {
+		b.reply(msg.Chat.ID, "This command must be used in a group chat.")
+		return
+	}
+
+	groupID := strconv.FormatInt(msg.Chat.ID, 10)
+	access, err := loadAccessJSON()
+	if err != nil {
+		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to read access.json: %v", err))
+		return
+	}
+
+	if access.Groups == nil {
+		access.Groups = make(map[string]groupConfig)
+	}
+
+	if _, exists := access.Groups[groupID]; exists {
+		b.reply(msg.Chat.ID, "This group is already in the allow list.")
+		return
+	}
+
+	access.Groups[groupID] = groupConfig{
+		RequireMention: false,
+		AllowFrom:      []string{},
+	}
+	if err := saveAccessJSON(access); err != nil {
+		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to save access.json: %v", err))
+		return
+	}
+
+	b.reply(msg.Chat.ID, fmt.Sprintf("Group added (ID: %s). Restart the session with /stop + /new.", groupID))
+}
+
+func (b *Bot) handleGroupRemove(msg *tgbotapi.Message) {
+	if msg.Chat.Type == "private" {
+		b.reply(msg.Chat.ID, "This command must be used in a group chat.")
+		return
+	}
+
+	groupID := strconv.FormatInt(msg.Chat.ID, 10)
+	access, err := loadAccessJSON()
+	if err != nil {
+		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to read access.json: %v", err))
+		return
+	}
+
+	if _, exists := access.Groups[groupID]; !exists {
+		b.reply(msg.Chat.ID, "This group is not in the allow list.")
+		return
+	}
+
+	delete(access.Groups, groupID)
+	if err := saveAccessJSON(access); err != nil {
+		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to save access.json: %v", err))
+		return
+	}
+
+	b.reply(msg.Chat.ID, fmt.Sprintf("Group removed (ID: %s). Restart the session with /stop + /new.", groupID))
+}
+
+type groupConfig struct {
+	RequireMention bool     `json:"requireMention"`
+	AllowFrom      []string `json:"allowFrom"`
+}
+
+type accessConfig struct {
+	DMPolicy  string                 `json:"dmPolicy"`
+	AllowFrom []string               `json:"allowFrom"`
+	Groups    map[string]groupConfig `json:"groups,omitempty"`
+}
+
+func accessJSONPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".claude", "channels", "telegram", "access.json"), nil
+}
+
+func loadAccessJSON() (*accessConfig, error) {
+	path, err := accessJSONPath()
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var ac accessConfig
+	if err := json.Unmarshal(data, &ac); err != nil {
+		return nil, err
+	}
+	return &ac, nil
+}
+
+func saveAccessJSON(ac *accessConfig) error {
+	path, err := accessJSONPath()
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(ac)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0600)
+}
+
 func (b *Bot) resolveNamePath(chatID int64, args []string) (string, string, bool) {
 	name := args[0]
 	if !projectNameRe.MatchString(name) {
@@ -356,5 +473,7 @@ func helpText() string {
   /status               Show status and default project
   /switch <name> [path] Switch to a different session
   /ls [flags] [path]    List directory contents (default: ~)
+  /groupadd             Allow this group for Claude bot (run in group)
+  /groupremove          Remove this group from allow list (run in group)
   /help                 Show this help`
 }
