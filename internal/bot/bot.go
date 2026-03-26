@@ -135,7 +135,7 @@ func (b *Bot) isAllowed(userID int64) bool {
 }
 
 func (b *Bot) handleCommand(msg *tgbotapi.Message) {
-	args := strings.Fields(msg.CommandArguments())
+	args := b.cleanArgs(msg.CommandArguments())
 
 	switch msg.Command() {
 	case "new":
@@ -421,6 +421,18 @@ func saveAccessJSON(ac *accessConfig) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0600)
+}
+
+func (b *Bot) cleanArgs(raw string) []string {
+	fields := strings.Fields(raw)
+	botMention := "@" + b.api.Self.UserName
+	cleaned := fields[:0]
+	for _, f := range fields {
+		if !strings.EqualFold(f, botMention) {
+			cleaned = append(cleaned, f)
+		}
+	}
+	return cleaned
 }
 
 func (b *Bot) resolveNamePath(chatID int64, args []string) (string, string, bool) {
