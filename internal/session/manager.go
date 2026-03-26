@@ -1,6 +1,7 @@
 package session
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -166,13 +167,25 @@ func setupAccessJSON(allowedUsers []int64) error {
 		return err
 	}
 
+	path := filepath.Join(dir, "access.json")
+
+	existing := make(map[string]interface{})
+	if data, err := os.ReadFile(path); err == nil {
+		json.Unmarshal(data, &existing)
+	}
+
 	userStrings := make([]string, len(allowedUsers))
 	for i, u := range allowedUsers {
-		userStrings[i] = `"` + strconv.FormatInt(u, 10) + `"`
+		userStrings[i] = strconv.FormatInt(u, 10)
 	}
-	content := `{"dmPolicy":"allowlist","allowFrom":[` + strings.Join(userStrings, ",") + `]}`
+	existing["dmPolicy"] = "allowlist"
+	existing["allowFrom"] = userStrings
 
-	return os.WriteFile(filepath.Join(dir, "access.json"), []byte(content), 0600)
+	content, err := json.Marshal(existing)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, content, 0600)
 }
 
 func setupTelegramEnv(token string) error {
