@@ -1,5 +1,15 @@
 # codegate
 
+<p align="center">
+  🇺🇸 English | <a href="docs/README.ko.md">🇰🇷 한국어</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/ljdongz/codegate/releases"><img src="https://img.shields.io/github/v/release/ljdongz/codegate" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux-blue" alt="Platform">
+</p>
+
 A Telegram bot for remotely managing Claude Code Channel sessions.
 
 Claude Code's [Channel](https://docs.anthropic.com/en/docs/claude-code/channels) feature allows you to interact with Claude Code sessions via Telegram. However, each session must be started and managed manually on the local machine, and connecting multiple projects requires creating separate bots for each one.
@@ -218,10 +228,6 @@ skip_permissions: true
 | `claude_bot_token` | Claude bot token (from BotFather) |
 | `max_sessions` | Maximum concurrent sessions |
 | `skip_permissions` | Enable `--dangerously-skip-permissions` |
-
-## Documentation
-
-- [한국어 문서](docs/README.ko.md)
 
 ## License
 
