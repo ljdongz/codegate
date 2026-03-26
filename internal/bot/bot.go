@@ -85,7 +85,7 @@ func (b *Bot) Start() error {
 			if !b.isAllowed(update.Message.From.ID) {
 				continue
 			}
-			if update.Message.IsCommand() {
+			if update.Message.IsCommand() && b.isCommandForMe(update.Message) {
 				b.handleCommand(update.Message)
 			}
 		case <-b.stopCh:
@@ -97,6 +97,16 @@ func (b *Bot) Start() error {
 func (b *Bot) Stop() {
 	close(b.stopCh)
 	b.api.StopReceivingUpdates()
+}
+
+func (b *Bot) isCommandForMe(msg *tgbotapi.Message) bool {
+	// DM: always process
+	if msg.Chat.Type == "private" {
+		return true
+	}
+	// Group: only process if command is addressed to this bot (@botname)
+	botName := b.api.Self.UserName
+	return msg.CommandWithAt() == msg.Command()+"@"+botName
 }
 
 func (b *Bot) isAllowed(userID int64) bool {
@@ -316,7 +326,7 @@ func (b *Bot) handleGroupAdd(msg *tgbotapi.Message) {
 	}
 
 	access.Groups[groupID] = groupConfig{
-		RequireMention: true,
+		RequireMention: false,
 		AllowFrom:      []string{},
 	}
 	if err := saveAccessJSON(access); err != nil {
