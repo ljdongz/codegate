@@ -10,6 +10,8 @@ import (
 var version = "dev"
 
 func main() {
+	cli.Version = version
+
 	if len(os.Args) < 2 {
 		printHelp()
 		return

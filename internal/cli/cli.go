@@ -7,6 +7,7 @@ import (
 )
 
 var (
+	Version     string
 	CodegateDir string
 	PidFile     string
 	LogFile     string

@@ -14,6 +14,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/ljdongz/codegate/internal/channel"
 	"github.com/ljdongz/codegate/internal/config"
+	"github.com/ljdongz/codegate/internal/updater"
 	"github.com/ljdongz/codegate/internal/pathutil"
 	"github.com/ljdongz/codegate/internal/session"
 )
@@ -37,12 +38,13 @@ type Bot struct {
 	api            *tgbotapi.BotAPI
 	sm             SessionManager
 	allowedUsers   []int64
+	version        string
 	mu             sync.RWMutex
 	defaultProject map[int64]string
 	stopCh         chan struct{}
 }
 
-func New(token string, sm SessionManager, allowedUsers []int64) (*Bot, error) {
+func New(token string, sm SessionManager, allowedUsers []int64, version string) (*Bot, error) {
 	api, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, fmt.Errorf("creating bot API: %w", err)
@@ -51,6 +53,7 @@ func New(token string, sm SessionManager, allowedUsers []int64) (*Bot, error) {
 		api:            api,
 		sm:             sm,
 		allowedUsers:   allowedUsers,
+		version:        version,
 		defaultProject: make(map[int64]string),
 		stopCh:         make(chan struct{}),
 	}, nil
@@ -73,6 +76,8 @@ func (b *Bot) registerCommands() {
 		tgbotapi.BotCommand{Command: "mkdir", Description: "Create directory — /mkdir <path>"},
 		tgbotapi.BotCommand{Command: "clear", Description: "Restart current session"},
 		tgbotapi.BotCommand{Command: "logs", Description: "Show Claude session logs — /logs [lines]"},
+		tgbotapi.BotCommand{Command: "version", Description: "Show codegate version"},
+		tgbotapi.BotCommand{Command: "update", Description: "Update codegate to latest version"},
 		tgbotapi.BotCommand{Command: "help", Description: "Show help"},
 	)
 	b.api.Request(cmds) //nolint:errcheck
@@ -203,6 +208,10 @@ func (b *Bot) dispatchCommand(msg *tgbotapi.Message, cmd string, args []string) 
 		b.handleClear(msg.Chat.ID, msg.From.ID)
 	case "logs":
 		b.handleLogs(msg.Chat.ID, msg.From.ID, args)
+	case "version":
+		b.handleVersion(msg.Chat.ID)
+	case "update":
+		b.handleUpdate(msg.Chat.ID)
 	case "help":
 		b.reply(msg.Chat.ID, helpText())
 	}
@@ -316,6 +325,29 @@ func (b *Bot) handleStatus(chatID int64, userID int64) {
 	} else {
 		sb.WriteString("\nNo default project set.")
 	}
+
+	// Registered bots
+	cfg, err := config.Load()
+	if err == nil && len(cfg.ClaudeBots) > 0 {
+		sb.WriteString("\n\nClaude bots:\n")
+		for _, cb := range cfg.ClaudeBots {
+			sb.WriteString(fmt.Sprintf("  • @%s (ID: %d)\n", cb.UserName, cb.ID))
+		}
+	} else {
+		sb.WriteString("\n\nNo Claude bots registered.")
+	}
+
+	versionLine := b.version
+	if tagName, err := updater.CheckLatestVersion(); err == nil {
+		latest := strings.TrimPrefix(tagName, "v")
+		current := strings.TrimPrefix(b.version, "v")
+		if current == latest {
+			versionLine += " (up to date)"
+		} else {
+			versionLine += fmt.Sprintf(" (%s available)", tagName)
+		}
+	}
+	sb.WriteString(fmt.Sprintf("\nVersion: %s", versionLine))
 
 	b.reply(chatID, sb.String())
 }
@@ -589,6 +621,39 @@ func (b *Bot) handleBotList(msg *tgbotapi.Message) {
 	b.reply(msg.Chat.ID, sb.String())
 }
 
+func (b *Bot) handleVersion(chatID int64) {
+	b.reply(chatID, fmt.Sprintf("codegate %s", b.version))
+}
+
+func (b *Bot) handleUpdate(chatID int64) {
+	b.reply(chatID, "Checking for updates...")
+
+	tagName, err := updater.CheckLatestVersion()
+	if err != nil {
+		b.reply(chatID, fmt.Sprintf("Failed to check updates: %v", err))
+		return
+	}
+
+	latest := strings.TrimPrefix(tagName, "v")
+	current := strings.TrimPrefix(b.version, "v")
+	if current == latest {
+		b.reply(chatID, fmt.Sprintf("Already up to date (%s).", b.version))
+		return
+	}
+
+	b.reply(chatID, fmt.Sprintf("Updating: %s → %s ...", b.version, tagName))
+
+	if err := updater.DoUpdate(tagName); err != nil {
+		b.reply(chatID, fmt.Sprintf("Update failed: %v", err))
+		return
+	}
+
+	b.reply(chatID, fmt.Sprintf("Updated to %s. Restarting...", tagName))
+
+	// Spawn restart as a detached process
+	exec.Command("codegate", "restart").Start() //nolint:errcheck
+}
+
 func (b *Bot) handleGroupAdd(msg *tgbotapi.Message) {
 	if msg.Chat.Type == "private" {
 		b.reply(msg.Chat.ID, "This command must be used in a group chat.")
@@ -709,6 +774,10 @@ Bot:
 - /bot_add <token> — Register a Claude bot (DM only).
 - /bot_remove <ID> — Remove a registered bot (DM only).
 - /bot_list — List registered bots.
+
+System:
+- /version — Show codegate version.
+- /update — Update codegate to latest version.
 
 Group (must be run inside the group chat):
 - /group_add — Add this group to Claude bot allow list.

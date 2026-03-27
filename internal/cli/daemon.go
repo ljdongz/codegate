@@ -136,7 +136,7 @@ func Run() {
 	}
 	sm := session.NewManager(claudeBotToken, cfg.Telegram.AllowedUsers, cfg.MaxSessions, cfg.SkipPermissions)
 
-	b, err := bot.New(cfg.Telegram.Token, sm, cfg.Telegram.AllowedUsers)
+	b, err := bot.New(cfg.Telegram.Token, sm, cfg.Telegram.AllowedUsers, Version)
 	if err != nil {
 		log.Fatalf("Failed to create bot: %v", err)
 	}
