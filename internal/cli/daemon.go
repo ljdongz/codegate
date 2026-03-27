@@ -130,11 +130,11 @@ func Run() {
 	if cfg.Telegram.Token == "" || cfg.Telegram.Token == "YOUR_TELEGRAM_BOT_TOKEN" {
 		log.Fatal("Telegram token not configured. Run 'codegate setup' first.")
 	}
-	if cfg.ClaudeBotToken == "" {
-		log.Fatal("Claude bot token not configured. Run 'codegate setup' first.")
+	var claudeBotToken string
+	if len(cfg.ClaudeBots) > 0 {
+		claudeBotToken = cfg.ClaudeBots[0].Token
 	}
-
-	sm := session.NewManager(cfg.ClaudeBotToken, cfg.Telegram.AllowedUsers, cfg.MaxSessions, cfg.SkipPermissions)
+	sm := session.NewManager(claudeBotToken, cfg.Telegram.AllowedUsers, cfg.MaxSessions, cfg.SkipPermissions)
 
 	b, err := bot.New(cfg.Telegram.Token, sm, cfg.Telegram.AllowedUsers)
 	if err != nil {

@@ -13,6 +13,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/ljdongz/codegate/internal/channel"
+	"github.com/ljdongz/codegate/internal/config"
 	"github.com/ljdongz/codegate/internal/pathutil"
 	"github.com/ljdongz/codegate/internal/session"
 )
@@ -25,6 +26,7 @@ type SessionManager interface {
 	StopAll() error
 	Clear(name string) error
 	Logs(name string, lines int) (string, error)
+	SetClaudeBotToken(token string)
 }
 
 var projectNameRe = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
@@ -63,6 +65,9 @@ func (b *Bot) registerCommands() {
 		tgbotapi.BotCommand{Command: "switch", Description: "Switch session (resume) — /switch <path>"},
 		tgbotapi.BotCommand{Command: "switch_new", Description: "Switch session (fresh) — /switch_new <path>"},
 		tgbotapi.BotCommand{Command: "ls", Description: "List directory — /ls [flags] [path]"},
+		tgbotapi.BotCommand{Command: "bot_add", Description: "Register Claude bot — /bot_add <token>"},
+		tgbotapi.BotCommand{Command: "bot_remove", Description: "Remove Claude bot — /bot_remove <ID>"},
+		tgbotapi.BotCommand{Command: "bot_list", Description: "List registered Claude bots"},
 		tgbotapi.BotCommand{Command: "group_add", Description: "Allow this group for Claude bot"},
 		tgbotapi.BotCommand{Command: "group_remove", Description: "Remove this group from allow list"},
 		tgbotapi.BotCommand{Command: "mkdir", Description: "Create directory — /mkdir <path>"},
@@ -182,6 +187,12 @@ func (b *Bot) dispatchCommand(msg *tgbotapi.Message, cmd string, args []string) 
 		b.handleSwitch(msg.Chat.ID, msg.From.ID, args, false)
 	case "ls":
 		b.handleLs(msg.Chat.ID, args)
+	case "bot_add":
+		b.handleBotAdd(msg, args)
+	case "bot_remove":
+		b.handleBotRemove(msg, args)
+	case "bot_list":
+		b.handleBotList(msg)
 	case "group_add":
 		b.handleGroupAdd(msg)
 	case "group_remove":
@@ -445,6 +456,139 @@ func (b *Bot) handleLogs(chatID int64, userID int64, args []string) {
 	b.reply(chatID, fmt.Sprintf("Logs for session %q (last %d lines):\n```\n%s\n```", def, lines, output))
 }
 
+func (b *Bot) handleBotAdd(msg *tgbotapi.Message, args []string) {
+	if msg.Chat.Type != "private" {
+		b.reply(msg.Chat.ID, "This command is available in DM(private chat) only (token is sensitive).")
+		return
+	}
+
+	if len(args) < 1 {
+		b.reply(msg.Chat.ID, "Usage: /bot_add <claude-bot-token>")
+		return
+	}
+
+	token := args[0]
+
+	// Validate token by calling Telegram getMe
+	claudeBot, err := tgbotapi.NewBotAPI(token)
+	if err != nil {
+		b.reply(msg.Chat.ID, fmt.Sprintf("Invalid bot token: %v", err))
+		return
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to load config: %v", err))
+		return
+	}
+
+	// Check for duplicate
+	for _, cb := range cfg.ClaudeBots {
+		if cb.ID == claudeBot.Self.ID {
+			b.reply(msg.Chat.ID, fmt.Sprintf("Bot @%s (ID: %d) is already registered.", cb.UserName, cb.ID))
+			return
+		}
+	}
+
+	cfg.ClaudeBots = append(cfg.ClaudeBots, config.ClaudeBot{
+		Token:    token,
+		ID:       claudeBot.Self.ID,
+		UserName: claudeBot.Self.UserName,
+	})
+	if err := cfg.Save(); err != nil {
+		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to save config: %v", err))
+		return
+	}
+
+	// Write .env with the first bot's token for the channel plugin
+	if err := channel.SetupEnv(cfg.ClaudeBots[0].Token); err != nil {
+		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to write channel .env: %v", err))
+		return
+	}
+
+	b.sm.SetClaudeBotToken(cfg.ClaudeBots[0].Token)
+
+	b.reply(msg.Chat.ID, fmt.Sprintf("Bot added: @%s (ID: %d). You can now start sessions with /new.", claudeBot.Self.UserName, claudeBot.Self.ID))
+}
+
+func (b *Bot) handleBotRemove(msg *tgbotapi.Message, args []string) {
+	if msg.Chat.Type != "private" {
+		b.reply(msg.Chat.ID, "This command is available in DM(private chat) only.")
+		return
+	}
+
+	if len(args) < 1 {
+		b.reply(msg.Chat.ID, "Usage: /bot_remove <bot-id>")
+		return
+	}
+
+	targetID, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		b.reply(msg.Chat.ID, fmt.Sprintf("Invalid bot ID: %v", err))
+		return
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to load config: %v", err))
+		return
+	}
+
+	found := false
+	var removedName string
+	filtered := cfg.ClaudeBots[:0]
+	for _, cb := range cfg.ClaudeBots {
+		if cb.ID == targetID {
+			found = true
+			removedName = cb.UserName
+		} else {
+			filtered = append(filtered, cb)
+		}
+	}
+
+	if !found {
+		b.reply(msg.Chat.ID, fmt.Sprintf("Bot with ID %d not found.", targetID))
+		return
+	}
+
+	cfg.ClaudeBots = filtered
+	if err := cfg.Save(); err != nil {
+		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to save config: %v", err))
+		return
+	}
+
+	// Update .env and session manager with first remaining bot (or clear)
+	if len(cfg.ClaudeBots) > 0 {
+		channel.SetupEnv(cfg.ClaudeBots[0].Token) //nolint:errcheck
+		b.sm.SetClaudeBotToken(cfg.ClaudeBots[0].Token)
+	} else {
+		channel.SetupEnv("") //nolint:errcheck
+		b.sm.SetClaudeBotToken("")
+	}
+
+	b.reply(msg.Chat.ID, fmt.Sprintf("Bot removed: @%s (ID: %d).", removedName, targetID))
+}
+
+func (b *Bot) handleBotList(msg *tgbotapi.Message) {
+	cfg, err := config.Load()
+	if err != nil {
+		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to load config: %v", err))
+		return
+	}
+
+	if len(cfg.ClaudeBots) == 0 {
+		b.reply(msg.Chat.ID, "No Claude bots registered. Use /bot_add <token> to add one.")
+		return
+	}
+
+	var sb strings.Builder
+	sb.WriteString("Registered Claude bots:\n")
+	for _, cb := range cfg.ClaudeBots {
+		sb.WriteString(fmt.Sprintf("  • @%s (ID: %d)\n", cb.UserName, cb.ID))
+	}
+	b.reply(msg.Chat.ID, sb.String())
+}
+
 func (b *Bot) handleGroupAdd(msg *tgbotapi.Message) {
 	if msg.Chat.Type == "private" {
 		b.reply(msg.Chat.ID, "This command must be used in a group chat.")
@@ -560,6 +704,11 @@ Session:
 File system:
 - /mkdir <path> — Create a directory (supports nested paths).
 - /ls [flags] [path] — List directory contents (default: ~).
+
+Bot:
+- /bot_add <token> — Register a Claude bot (DM only).
+- /bot_remove <ID> — Remove a registered bot (DM only).
+- /bot_list — List registered bots.
 
 Group (must be run inside the group chat):
 - /group_add — Add this group to Claude bot allow list.

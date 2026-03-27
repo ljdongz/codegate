@@ -36,6 +36,12 @@ type SessionInfo struct {
 	CreatedAt time.Time
 }
 
+func (m *Manager) SetClaudeBotToken(token string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.claudeBotToken = token
+}
+
 func (m *Manager) Start(name, projectPath string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -107,6 +113,10 @@ func (m *Manager) Logs(name string, lines int) (string, error) {
 }
 
 func (m *Manager) startSession(name, projectPath string, resume bool) error {
+	if m.claudeBotToken == "" {
+		return fmt.Errorf("Claude bot token not set. Send /bot <token> to the management bot first")
+	}
+
 	sessionName := sessionPrefix + name
 
 	if tmuxSessionExists(sessionName) {

@@ -8,14 +8,20 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type ClaudeBot struct {
+	Token    string `yaml:"token"`
+	ID       int64  `yaml:"id"`
+	UserName string `yaml:"username"`
+}
+
 type Config struct {
 	Telegram struct {
 		Token        string  `yaml:"token"`
 		AllowedUsers []int64 `yaml:"allowed_users"`
 	} `yaml:"telegram"`
-	ClaudeBotToken  string `yaml:"claude_bot_token"`
-	MaxSessions     int    `yaml:"max_sessions"`
-	SkipPermissions bool   `yaml:"skip_permissions"`
+	ClaudeBots      []ClaudeBot `yaml:"claude_bots"`
+	MaxSessions     int         `yaml:"max_sessions"`
+	SkipPermissions bool        `yaml:"skip_permissions"`
 }
 
 func DefaultConfig() Config {

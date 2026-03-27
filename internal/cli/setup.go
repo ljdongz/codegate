@@ -62,14 +62,6 @@ func Setup() {
 		os.Exit(1)
 	}
 
-	fmt.Print("Enter Claude bot token (from BotFather): ")
-	claudeToken, _ := reader.ReadString('\n')
-	claudeToken = strings.TrimSpace(claudeToken)
-	if claudeToken == "" {
-		fmt.Fprintln(os.Stderr, "Token cannot be empty.")
-		os.Exit(1)
-	}
-
 	fmt.Print("Enter your Telegram user ID (from @userinfobot): ")
 	userIDStr, _ := reader.ReadString('\n')
 	userIDStr = strings.TrimSpace(userIDStr)
@@ -82,7 +74,6 @@ func Setup() {
 	cfg := config.DefaultConfig()
 	cfg.Telegram.Token = mgmtToken
 	cfg.Telegram.AllowedUsers = []int64{userID}
-	cfg.ClaudeBotToken = claudeToken
 	if err := cfg.Save(); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to save config: %v\n", err)
 		os.Exit(1)
@@ -98,11 +89,6 @@ func Setup() {
 		fmt.Println("Install manually: claude /plugin install telegram@claude-plugins-official")
 	}
 
-	if err := channel.SetupEnv(claudeToken); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to write .env: %v\n", err)
-		os.Exit(1)
-	}
-
 	if err := channel.SetupAccess([]int64{userID}); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to write access.json: %v\n", err)
 		os.Exit(1)
@@ -110,5 +96,6 @@ func Setup() {
 
 	fmt.Println()
 	fmt.Println("✓ Setup complete!")
-	fmt.Println("  Run 'codegate start' to begin.")
+	fmt.Println("  1. Run 'codegate start' to start the daemon.")
+	fmt.Println("  2. Send /bot_add <claude-bot-token> to the management bot to register your Claude bot.")
 }

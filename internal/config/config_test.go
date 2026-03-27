@@ -62,7 +62,10 @@ func TestLoadParsesYAML(t *testing.T) {
   allowed_users:
     - 111
     - 222
-claude_bot_token: "claude-token"
+claude_bots:
+  - token: "claude-token"
+    id: 12345
+    username: "testbot"
 max_sessions: 10
 skip_permissions: false
 `
@@ -81,8 +84,8 @@ skip_permissions: false
 	if len(cfg.Telegram.AllowedUsers) != 2 || cfg.Telegram.AllowedUsers[0] != 111 || cfg.Telegram.AllowedUsers[1] != 222 {
 		t.Errorf("unexpected AllowedUsers: %v", cfg.Telegram.AllowedUsers)
 	}
-	if cfg.ClaudeBotToken != "claude-token" {
-		t.Errorf("expected ClaudeBotToken 'claude-token', got %q", cfg.ClaudeBotToken)
+	if len(cfg.ClaudeBots) != 1 || cfg.ClaudeBots[0].Token != "claude-token" || cfg.ClaudeBots[0].ID != 12345 || cfg.ClaudeBots[0].UserName != "testbot" {
+		t.Errorf("unexpected ClaudeBots: %+v", cfg.ClaudeBots)
 	}
 	if cfg.MaxSessions != 10 {
 		t.Errorf("expected MaxSessions=10, got %d", cfg.MaxSessions)
