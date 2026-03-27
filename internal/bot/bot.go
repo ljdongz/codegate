@@ -63,20 +63,18 @@ func (b *Bot) registerCommands() {
 	cmds := tgbotapi.NewSetMyCommands(
 		tgbotapi.BotCommand{Command: "new", Description: "Start a new Claude session — /new <path>"},
 		tgbotapi.BotCommand{Command: "stop", Description: "Stop active sessions"},
-		tgbotapi.BotCommand{Command: "list", Description: "List active sessions"},
-		tgbotapi.BotCommand{Command: "status", Description: "Show status and default project"},
+		tgbotapi.BotCommand{Command: "status", Description: "Show status"},
 		tgbotapi.BotCommand{Command: "switch", Description: "Switch session (resume) — /switch <path>"},
 		tgbotapi.BotCommand{Command: "switch_new", Description: "Switch session (fresh) — /switch_new <path>"},
 		tgbotapi.BotCommand{Command: "ls", Description: "List directory — /ls [flags] [path]"},
 		tgbotapi.BotCommand{Command: "bot_add", Description: "Register Claude bot — /bot_add <token>"},
 		tgbotapi.BotCommand{Command: "bot_remove", Description: "Remove Claude bot — /bot_remove <ID>"},
-		tgbotapi.BotCommand{Command: "bot_list", Description: "List registered Claude bots"},
-		tgbotapi.BotCommand{Command: "group_add", Description: "Allow this group for Claude bot"},
-		tgbotapi.BotCommand{Command: "group_remove", Description: "Remove this group from allow list"},
+		tgbotapi.BotCommand{Command: "group_add", Description: "Allow group — /group_add [ID]"},
+		tgbotapi.BotCommand{Command: "group_remove", Description: "Remove group — /group_remove [ID]"},
+		tgbotapi.BotCommand{Command: "group_id", Description: "Show this group's chat ID"},
 		tgbotapi.BotCommand{Command: "mkdir", Description: "Create directory — /mkdir <path>"},
 		tgbotapi.BotCommand{Command: "clear", Description: "Restart current session"},
 		tgbotapi.BotCommand{Command: "logs", Description: "Show Claude session logs — /logs [lines]"},
-		tgbotapi.BotCommand{Command: "version", Description: "Show codegate version"},
 		tgbotapi.BotCommand{Command: "update", Description: "Update codegate to latest version"},
 		tgbotapi.BotCommand{Command: "help", Description: "Show help"},
 	)
@@ -182,10 +180,8 @@ func (b *Bot) dispatchCommand(msg *tgbotapi.Message, cmd string, args []string) 
 		b.handleNew(msg.Chat.ID, msg.From.ID, args)
 	case "stop":
 		b.handleStop(msg.Chat.ID, msg.From.ID)
-	case "list":
-		b.handleList(msg.Chat.ID)
 	case "status":
-		b.handleStatus(msg.Chat.ID, msg.From.ID)
+		b.handleStatus(msg, msg.From.ID)
 	case "switch":
 		b.handleSwitch(msg.Chat.ID, msg.From.ID, args, true)
 	case "switch_new":
@@ -196,20 +192,18 @@ func (b *Bot) dispatchCommand(msg *tgbotapi.Message, cmd string, args []string) 
 		b.handleBotAdd(msg, args)
 	case "bot_remove":
 		b.handleBotRemove(msg, args)
-	case "bot_list":
-		b.handleBotList(msg)
 	case "group_add":
-		b.handleGroupAdd(msg)
+		b.handleGroupAdd(msg, args)
 	case "group_remove":
-		b.handleGroupRemove(msg)
+		b.handleGroupRemove(msg, args)
+	case "group_id":
+		b.handleGroupID(msg)
 	case "mkdir":
 		b.handleMkdir(msg.Chat.ID, args)
 	case "clear":
 		b.handleClear(msg.Chat.ID, msg.From.ID)
 	case "logs":
 		b.handleLogs(msg.Chat.ID, msg.From.ID, args)
-	case "version":
-		b.handleVersion(msg.Chat.ID)
 	case "update":
 		b.handleUpdate(msg.Chat.ID)
 	case "help":
@@ -274,27 +268,9 @@ func (b *Bot) handleStop(chatID int64, userID int64) {
 	}
 }
 
-func (b *Bot) handleList(chatID int64) {
-	sessions, err := b.sm.List()
-	if err != nil {
-		b.reply(chatID, fmt.Sprintf("Failed to list sessions: %v", err))
-		return
-	}
-	if len(sessions) == 0 {
-		b.reply(chatID, "No active sessions.")
-		return
-	}
+func (b *Bot) handleStatus(msg *tgbotapi.Message, userID int64) {
+	chatID := msg.Chat.ID
 
-	var sb strings.Builder
-	sb.WriteString("Active sessions:\n")
-	for _, s := range sessions {
-		uptime := time.Since(s.CreatedAt).Round(time.Second)
-		sb.WriteString(fmt.Sprintf("  • %s (up %s)\n", s.Name, uptime))
-	}
-	b.reply(chatID, sb.String())
-}
-
-func (b *Bot) handleStatus(chatID int64, userID int64) {
 	sessions, err := b.sm.List()
 	if err != nil {
 		b.reply(chatID, fmt.Sprintf("Failed to get status: %v", err))
@@ -323,7 +299,8 @@ func (b *Bot) handleStatus(chatID int64, userID int64) {
 	if def != "" {
 		sb.WriteString(fmt.Sprintf("\nDefault project: %s", def))
 	} else {
-		sb.WriteString("\nNo default project set.")
+		home, _ := os.UserHomeDir()
+		sb.WriteString(fmt.Sprintf("\nDefault project: %s", home))
 	}
 
 	// Registered bots
@@ -335,6 +312,28 @@ func (b *Bot) handleStatus(chatID int64, userID int64) {
 		}
 	} else {
 		sb.WriteString("\n\nNo Claude bots registered.")
+	}
+
+	// Allowed groups
+	access, accessErr := channel.LoadAccess()
+	if accessErr == nil && len(access.Groups) > 0 {
+		sb.WriteString("\nAllowed groups:\n")
+		currentChatID := strconv.FormatInt(chatID, 10)
+		for groupID := range access.Groups {
+			gid, parseErr := strconv.ParseInt(groupID, 10, 64)
+			title := groupID
+			if parseErr == nil {
+				chatCfg := tgbotapi.ChatInfoConfig{ChatConfig: tgbotapi.ChatConfig{ChatID: gid}}
+				if chat, chatErr := b.api.GetChat(chatCfg); chatErr == nil && chat.Title != "" {
+					title = fmt.Sprintf("%s (ID: %s)", chat.Title, groupID)
+				}
+			}
+			marker := ""
+			if groupID == currentChatID {
+				marker = " [current]"
+			}
+			sb.WriteString(fmt.Sprintf("  • %s%s\n", title, marker))
+		}
 	}
 
 	versionLine := b.version
@@ -601,30 +600,6 @@ func (b *Bot) handleBotRemove(msg *tgbotapi.Message, args []string) {
 	b.reply(msg.Chat.ID, fmt.Sprintf("Bot removed: @%s (ID: %d).", removedName, targetID))
 }
 
-func (b *Bot) handleBotList(msg *tgbotapi.Message) {
-	cfg, err := config.Load()
-	if err != nil {
-		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to load config: %v", err))
-		return
-	}
-
-	if len(cfg.ClaudeBots) == 0 {
-		b.reply(msg.Chat.ID, "No Claude bots registered. Use /bot_add <token> to add one.")
-		return
-	}
-
-	var sb strings.Builder
-	sb.WriteString("Registered Claude bots:\n")
-	for _, cb := range cfg.ClaudeBots {
-		sb.WriteString(fmt.Sprintf("  • @%s (ID: %d)\n", cb.UserName, cb.ID))
-	}
-	b.reply(msg.Chat.ID, sb.String())
-}
-
-func (b *Bot) handleVersion(chatID int64) {
-	b.reply(chatID, fmt.Sprintf("codegate %s", b.version))
-}
-
 func (b *Bot) handleUpdate(chatID int64) {
 	b.reply(chatID, "Checking for updates...")
 
@@ -654,13 +629,28 @@ func (b *Bot) handleUpdate(chatID int64) {
 	exec.Command("codegate", "restart").Start() //nolint:errcheck
 }
 
-func (b *Bot) handleGroupAdd(msg *tgbotapi.Message) {
+func (b *Bot) resolveGroupID(msg *tgbotapi.Message, args []string) (string, bool) {
+	if len(args) > 0 {
+		// Validate the provided ID is a number
+		if _, err := strconv.ParseInt(args[0], 10, 64); err != nil {
+			b.reply(msg.Chat.ID, fmt.Sprintf("Invalid group ID: %v", err))
+			return "", false
+		}
+		return args[0], true
+	}
 	if msg.Chat.Type == "private" {
-		b.reply(msg.Chat.ID, "This command must be used in a group chat.")
+		b.reply(msg.Chat.ID, "Usage: /group_add <ID> (in DM) or /group_add (in group chat)")
+		return "", false
+	}
+	return strconv.FormatInt(msg.Chat.ID, 10), true
+}
+
+func (b *Bot) handleGroupAdd(msg *tgbotapi.Message, args []string) {
+	groupID, ok := b.resolveGroupID(msg, args)
+	if !ok {
 		return
 	}
 
-	groupID := strconv.FormatInt(msg.Chat.ID, 10)
 	access, err := channel.LoadAccess()
 	if err != nil {
 		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to read access.json: %v", err))
@@ -672,7 +662,7 @@ func (b *Bot) handleGroupAdd(msg *tgbotapi.Message) {
 	}
 
 	if _, exists := access.Groups[groupID]; exists {
-		b.reply(msg.Chat.ID, "This group is already in the allow list.")
+		b.reply(msg.Chat.ID, fmt.Sprintf("Group %s is already in the allow list.", groupID))
 		return
 	}
 
@@ -688,13 +678,12 @@ func (b *Bot) handleGroupAdd(msg *tgbotapi.Message) {
 	b.reply(msg.Chat.ID, fmt.Sprintf("Group added (ID: %s). Restart the session with /stop + /new.", groupID))
 }
 
-func (b *Bot) handleGroupRemove(msg *tgbotapi.Message) {
-	if msg.Chat.Type == "private" {
-		b.reply(msg.Chat.ID, "This command must be used in a group chat.")
+func (b *Bot) handleGroupRemove(msg *tgbotapi.Message, args []string) {
+	groupID, ok := b.resolveGroupID(msg, args)
+	if !ok {
 		return
 	}
 
-	groupID := strconv.FormatInt(msg.Chat.ID, 10)
 	access, err := channel.LoadAccess()
 	if err != nil {
 		b.reply(msg.Chat.ID, fmt.Sprintf("Failed to read access.json: %v", err))
@@ -702,7 +691,7 @@ func (b *Bot) handleGroupRemove(msg *tgbotapi.Message) {
 	}
 
 	if _, exists := access.Groups[groupID]; !exists {
-		b.reply(msg.Chat.ID, "This group is not in the allow list.")
+		b.reply(msg.Chat.ID, fmt.Sprintf("Group %s is not in the allow list.", groupID))
 		return
 	}
 
@@ -713,6 +702,14 @@ func (b *Bot) handleGroupRemove(msg *tgbotapi.Message) {
 	}
 
 	b.reply(msg.Chat.ID, fmt.Sprintf("Group removed (ID: %s). Restart the session with /stop + /new.", groupID))
+}
+
+func (b *Bot) handleGroupID(msg *tgbotapi.Message) {
+	if msg.Chat.Type == "private" {
+		b.reply(msg.Chat.ID, "This command must be used in a group chat.")
+		return
+	}
+	b.reply(msg.Chat.ID, fmt.Sprintf("This group's chat ID: %d", msg.Chat.ID))
 }
 
 
@@ -757,31 +754,27 @@ func helpText() string {
 	return `codegate commands:
 
 Session:
-- /new <path> — Start a new Claude session. Path must exist (use /mkdir to create).
-- /stop — Stop all active sessions.
-- /switch <path> — Switch to another project. Resumes previous conversation.
-- /switch_new <path> — Switch to another project. Starts a fresh conversation.
-- /clear — Restart current session with a fresh conversation.
-- /list — List active sessions with uptime.
-- /status — Show active sessions and default project.
-- /logs [lines] — Show Claude session terminal output (default: 50, max: 200). Useful when Claude bot is typing but not responding.
+  • /new <path> — Start a new Claude session. Path must exist (use /mkdir to create).
+  • /stop — Stop all active sessions.
+  • /switch <path> — Switch to another project. Resumes previous conversation.
+  • /switch_new <path> — Switch to another project. Starts a fresh conversation.
+  • /clear — Restart current session with a fresh conversation.
+  • /status — Show status (sessions, bots, groups, version).
+  • /logs [lines] — Show Claude session terminal output (default: 50, max: 200). Useful when Claude bot is typing but not responding.
 
 File system:
-- /mkdir <path> — Create a directory (supports nested paths).
-- /ls [flags] [path] — List directory contents (default: ~).
+  • /mkdir <path> — Create a directory (supports nested paths).
+  • /ls [flags] [path] — List directory contents (default: ~).
 
 Bot:
-- /bot_add <token> — Register a Claude bot (DM only).
-- /bot_remove <ID> — Remove a registered bot (DM only).
-- /bot_list — List registered bots.
+  • /bot_add <token> — Register a Claude bot (DM only).
+  • /bot_remove <ID> — Remove a registered bot (DM only).
+  • /update — Update codegate to latest version.
 
-System:
-- /version — Show codegate version.
-- /update — Update codegate to latest version.
+Group:
+  • /group_add [ID] — Add group to allow list. Omit ID in group chat to use current group.
+  • /group_remove [ID] — Remove group from allow list. Omit ID in group chat to use current group.
+  • /group_id — Show this group's chat ID (group chat only).
 
-Group (must be run inside the group chat):
-- /group_add — Add this group to Claude bot allow list.
-- /group_remove — Remove this group from Claude bot allow list.
-
-- /help — Show this help.`
+  • /help — Show this help.`
 }
