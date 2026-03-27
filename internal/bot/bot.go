@@ -92,8 +92,8 @@ func (b *Bot) Start() error {
 			if !b.isAllowed(update.Message.From.ID) {
 				continue
 			}
-			if update.Message.IsCommand() && b.isCommandForMe(update.Message) {
-				b.handleCommand(update.Message)
+			if cmd, args, ok := b.parseCommand(update.Message); ok {
+				b.dispatchCommand(update.Message, cmd, args)
 			}
 		case <-b.stopCh:
 			return nil
@@ -106,27 +106,52 @@ func (b *Bot) Stop() {
 	b.api.StopReceivingUpdates()
 }
 
-func (b *Bot) isCommandForMe(msg *tgbotapi.Message) bool {
-	if msg.Chat.Type == "private" {
-		return true
+// parseCommand extracts the command and arguments from a message,
+// handling both "/command @bot args" and "@bot /command args" orderings.
+func (b *Bot) parseCommand(msg *tgbotapi.Message) (string, []string, bool) {
+	if msg.Entities == nil {
+		return "", nil, false
 	}
+
 	botName := b.api.Self.UserName
-	// /help@codegatebot (no space)
-	if msg.CommandWithAt() == msg.Command()+"@"+botName {
-		return true
-	}
-	// /help @codegatebot (with space)
-	if msg.Entities != nil {
-		for _, e := range msg.Entities {
-			if e.Type == "mention" {
-				mention := msg.Text[e.Offset : e.Offset+e.Length]
-				if mention == "@"+botName {
-					return true
-				}
+	isPrivate := msg.Chat.Type == "private"
+	hasBotMention := isPrivate
+
+	var cmdEntity *tgbotapi.MessageEntity
+	for i := range msg.Entities {
+		e := &msg.Entities[i]
+		switch e.Type {
+		case "bot_command":
+			cmdEntity = e
+			// /help@codegatebot format
+			cmdText := msg.Text[e.Offset : e.Offset+e.Length]
+			if strings.Contains(cmdText, "@"+botName) {
+				hasBotMention = true
+			}
+		case "mention":
+			mention := msg.Text[e.Offset : e.Offset+e.Length]
+			if mention == "@"+botName {
+				hasBotMention = true
 			}
 		}
 	}
-	return false
+
+	if cmdEntity == nil || !hasBotMention {
+		return "", nil, false
+	}
+
+	// Extract command name (skip '/', strip @botname suffix)
+	cmdText := msg.Text[cmdEntity.Offset : cmdEntity.Offset+cmdEntity.Length]
+	cmd := cmdText[1:]
+	if at := strings.Index(cmd, "@"); at != -1 {
+		cmd = cmd[:at]
+	}
+
+	// Arguments: text after the command entity
+	rawArgs := strings.TrimSpace(msg.Text[cmdEntity.Offset+cmdEntity.Length:])
+	args := b.cleanArgs(rawArgs)
+
+	return cmd, args, true
 }
 
 func (b *Bot) isAllowed(userID int64) bool {
@@ -141,10 +166,8 @@ func (b *Bot) isAllowed(userID int64) bool {
 	return false
 }
 
-func (b *Bot) handleCommand(msg *tgbotapi.Message) {
-	args := b.cleanArgs(msg.CommandArguments())
-
-	switch msg.Command() {
+func (b *Bot) dispatchCommand(msg *tgbotapi.Message, cmd string, args []string) {
+	switch cmd {
 	case "new":
 		b.handleNew(msg.Chat.ID, msg.From.ID, args)
 	case "stop":
