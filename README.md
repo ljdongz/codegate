@@ -293,6 +293,7 @@ skip_permissions: true
 - **Session state is in-memory.** If the codegate daemon restarts or crashes, it does not reconnect to previously running tmux sessions. Use `/new` to start a fresh session after restart.
 - **No auto-start on boot.** codegate does not install a system service. For persistent operation, configure a launchd plist (macOS) or systemd unit (Linux).
 - **`/switch` relies on Claude Code's `--continue` flag**, which resumes the most recent conversation stored in Claude Code's local history for that project directory. If no previous conversation exists, it starts a new one.
+- **`--dangerously-skip-permissions` is effectively required.** Claude Code normally prompts for interactive confirmation on file writes and shell commands. Since codegate operates remotely via Telegram, there is no way to approve these prompts in real time. The `skip_permissions` config option (see [Config](#config)) enables this flag so Claude can work autonomously.
 
 ## License
 

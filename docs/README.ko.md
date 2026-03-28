@@ -293,6 +293,7 @@ skip_permissions: true
 - **세션 상태는 메모리에만 저장됩니다.** codegate 데몬이 재시작되거나 크래시되면 기존 tmux 세션에 재연결하지 않습니다. 재시작 후 `/new`로 새 세션을 시작하세요.
 - **부팅 시 자동 시작되지 않습니다.** codegate는 시스템 서비스를 설치하지 않습니다. 상시 운영이 필요하면 launchd plist (macOS) 또는 systemd unit (Linux)을 설정하세요.
 - **`/switch`는 Claude Code의 `--continue` 플래그에 의존합니다.** 해당 프로젝트 디렉토리의 Claude Code 로컬 기록에서 가장 최근 대화를 이어갑니다. 이전 대화가 없으면 새 대화를 시작합니다.
+- **`--dangerously-skip-permissions` 플래그가 사실상 필수입니다.** Claude Code는 파일 수정, 쉘 명령 실행 시 대화형 확인을 요구합니다. codegate는 텔레그램을 통해 원격으로 동작하므로 이러한 프롬프트를 실시간으로 승인할 수 없습니다. `skip_permissions` 설정 옵션([설정 파일](#설정-파일) 참고)으로 이 플래그를 활성화하면 Claude가 자율적으로 작업할 수 있습니다.
 
 ## 라이선스
 
