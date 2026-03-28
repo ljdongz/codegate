@@ -64,12 +64,13 @@ brew install ljdongz/tap/codegate
 curl -fsSL https://raw.githubusercontent.com/ljdongz/codegate/main/install.sh | sh
 ```
 
-### From source
+### From source (development)
 
 ```bash
 git clone https://github.com/ljdongz/codegate.git
 cd codegate
-make install
+make setup   # Initial config (tokens, etc.)
+make dev     # Run in foreground
 ```
 
 ### Uninstall
@@ -83,6 +84,9 @@ sudo rm /usr/local/bin/codegate
 
 # Clean up config
 rm -rf ~/.codegate
+
+# Clean up dev environment (if used)
+cd codegate && make uninstall
 ```
 
 ## Setup
@@ -175,12 +179,10 @@ Invite both bots into a single group chat.
 
 | Command | Description |
 |---------|-------------|
-| `/new <path>` | Start a new Claude session (path must exist) |
-| `/stop` | Stop active sessions |
-| `/list` | List active sessions |
+| `/new <path>` | Start a new Claude session. Stops any existing session first. |
+| `/stop` | Stop the active session |
 | `/status` | Show status and default project |
 | `/switch <path>` | Switch session (resumes previous conversation) |
-| `/switch_new <path>` | Switch session (fresh conversation) |
 | `/clear` | Restart current session (fresh conversation) |
 | `/mkdir <path>` | Create a directory |
 | `/ls [flags] [path]` | List directory contents (default: ~) |
@@ -192,7 +194,7 @@ Invite both bots into a single group chat.
 ### Example workflow
 
 ```
-# Start a Claude Code session (path must exist; use /mkdir if needed)
+# Start a Claude Code session (stops any existing session first)
 /new ~/myapp
 
 # Ask Claude bot to work (via DM or mention in group)
@@ -203,9 +205,6 @@ Invite both bots into a single group chat.
 
 # Switch back (resumes previous conversation)
 /switch ~/myapp
-
-# Switch with a fresh conversation
-/switch_new ~/myapp
 
 # Check logs when Claude is not responding
 /logs
@@ -226,8 +225,10 @@ telegram:
   token: "management-bot-token"
   allowed_users:
     - 123456789
-claude_bot_token: "claude-bot-token"
-max_sessions: 5
+claude_bots:
+  - token: "claude-bot-token"
+    id: 12345
+    username: "my_claude_bot"
 skip_permissions: true
 ```
 
@@ -235,9 +236,10 @@ skip_permissions: true
 |-------|-------------|
 | `telegram.token` | Management bot token (from BotFather) |
 | `telegram.allowed_users` | Allowed Telegram user IDs |
-| `claude_bot_token` | Claude bot token (from BotFather) |
-| `max_sessions` | Maximum concurrent sessions |
+| `claude_bots` | Registered Claude bots (managed via /bot_add) |
 | `skip_permissions` | Enable `--dangerously-skip-permissions` |
+
+> **Note:** Set `CODEGATE_CONFIG_DIR` to use a custom config directory (default: `~/.codegate`).
 
 ## License
 

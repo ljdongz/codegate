@@ -64,12 +64,13 @@ brew install ljdongz/tap/codegate
 curl -fsSL https://raw.githubusercontent.com/ljdongz/codegate/main/install.sh | sh
 ```
 
-### 소스에서 빌드
+### 소스에서 빌드 (개발용)
 
 ```bash
 git clone https://github.com/ljdongz/codegate.git
 cd codegate
-make install
+make setup   # 초기 설정 (토큰 등)
+make dev     # 포그라운드 실행
 ```
 
 ### 제거
@@ -83,6 +84,9 @@ sudo rm /usr/local/bin/codegate
 
 # 설정 파일 정리
 rm -rf ~/.codegate
+
+# 개발 환경 정리 (사용한 경우)
+cd codegate && make uninstall
 ```
 
 ## 설정
@@ -175,12 +179,10 @@ codegate는 두 가지 방식으로 사용할 수 있습니다:
 
 | 명령어 | 설명 |
 |--------|------|
-| `/new <path>` | 새 Claude 세션 시작 (경로가 존재해야 함) |
+| `/new <path>` | 새 Claude 세션 시작 (기존 세션 자동 종료) |
 | `/stop` | 활성 세션 종료 |
-| `/list` | 활성 세션 목록 |
 | `/status` | 상태 및 기본 프로젝트 |
 | `/switch <path>` | 세션 전환 (이전 대화 이어감) |
-| `/switch_new <path>` | 세션 전환 (새 대화) |
 | `/clear` | 현재 세션 재시작 (새 대화) |
 | `/mkdir <path>` | 디렉토리 생성 |
 | `/ls [flags] [path]` | 디렉토리 목록 (기본: ~) |
@@ -192,7 +194,7 @@ codegate는 두 가지 방식으로 사용할 수 있습니다:
 ### 세션 관리 예시
 
 ```
-# Claude Code 세션 시작 (경로가 존재해야 함. 없으면 /mkdir 활용)
+# Claude Code 세션 시작 (기존 세션 자동 종료)
 /new ~/myapp
 
 # Claude 봇에게 작업 요청 (DM 또는 그룹에서 멘션)
@@ -203,9 +205,6 @@ codegate는 두 가지 방식으로 사용할 수 있습니다:
 
 # 돌아올 때 이전 대화 이어감
 /switch ~/myapp
-
-# 새 대화로 전환
-/switch_new ~/myapp
 
 # Claude가 응답하지 않을 때 로그 확인
 /logs
@@ -226,8 +225,10 @@ telegram:
   token: "관리봇토큰"
   allowed_users:
     - 123456789
-claude_bot_token: "클로드봇토큰"
-max_sessions: 5
+claude_bots:
+  - token: "클로드봇토큰"
+    id: 12345
+    username: "my_claude_bot"
 skip_permissions: true
 ```
 
@@ -235,9 +236,10 @@ skip_permissions: true
 |------|------|
 | `telegram.token` | 관리 봇 토큰 (BotFather) |
 | `telegram.allowed_users` | 허용된 텔레그램 user ID 목록 |
-| `claude_bot_token` | Claude 봇 토큰 (BotFather) |
-| `max_sessions` | 최대 동시 세션 수 |
+| `claude_bots` | 등록된 Claude 봇 목록 (/bot_add로 관리) |
 | `skip_permissions` | `--dangerously-skip-permissions` 활성화 |
+
+> **참고:** `CODEGATE_CONFIG_DIR` 환경변수로 설정 디렉토리를 변경할 수 있습니다 (기본값: `~/.codegate`).
 
 ## 라이선스
 

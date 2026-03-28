@@ -36,8 +36,10 @@ telegram:
   token: "<management bot token>"
   allowed_users:
     - <user ID>
-claude_bot_token: "<Claude bot token>"
-max_sessions: 5
+claude_bots:
+  - token: "<Claude bot token>"
+    id: <bot ID from validation>
+    username: "<bot username>"
 skip_permissions: true
 ```
 
@@ -53,19 +55,15 @@ TELEGRAM_BOT_TOKEN=<Claude bot token>
 
 ## 5. Install codegate
 
-```bash
-go install github.com/ljdongz/codegate/cmd/codegate@latest
-```
-
-Or from source:
+From source (development):
 ```bash
 git clone https://github.com/ljdongz/codegate.git
 cd codegate
-make install
+make setup
 ```
 
 ## 6. Done
 
 Inform the user:
-- Start the bot with `codegate start`
+- Run the bot with `make dev` (foreground) for development
 - Start a Claude session on Telegram with `/new <path>`
