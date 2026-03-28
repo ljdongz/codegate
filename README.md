@@ -113,7 +113,7 @@ cd codegate && make uninstall
 Type the following in a Claude Code session:
 
 ```
-@https://github.com/ljdongz/codegate/blob/main/SETUP.md Follow this guide to set up codegate
+@https://github.com/ljdongz/codegate/blob/main/docs/SETUP.md Follow this guide to set up codegate
 ```
 
 Claude Code will walk you through: installing dependencies, creating Telegram bots, collecting tokens and your user ID, and writing all config files.
