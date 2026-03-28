@@ -170,17 +170,25 @@ func (m *Manager) startSession(name, projectPath string, resume bool) error {
 		return fmt.Errorf("setting up telegram .env: %w", err)
 	}
 
-	claudeCmd := "cd '" + shellEscape(projectPath) + "' && claude --channels plugin:telegram@claude-plugins-official"
-	if resume {
-		claudeCmd += " --continue"
-	}
+	cdCmd := "cd '" + shellEscape(projectPath) + "'"
+	claudeArgs := "claude --channels plugin:telegram@claude-plugins-official"
 	if m.skipPermissions {
-		claudeCmd += " --dangerously-skip-permissions"
+		claudeArgs += " --dangerously-skip-permissions"
+	}
+
+	var claudeCmd string
+	if resume {
+		claudeCmd = cdCmd + " && (" + claudeArgs + " --continue || " + claudeArgs + ")"
+	} else {
+		claudeCmd = cdCmd + " && " + claudeArgs
 	}
 
 	if err := exec.Command("tmux", "new-session", "-d", "-s", sessionName, claudeCmd).Run(); err != nil {
 		return fmt.Errorf("starting tmux session: %w", err)
 	}
+
+	// Keep tmux session alive after command exits so /logs can capture error output
+	_ = exec.Command("tmux", "set-option", "-t", sessionName, "remain-on-exit", "on").Run()
 	return nil
 }
 
