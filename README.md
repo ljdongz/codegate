@@ -17,6 +17,8 @@ Claude Code's [Channel](https://docs.anthropic.com/en/docs/claude-code/channels)
 
 codegate runs as a lightweight daemon on your machine and gives you full session control from Telegram: start new sessions, switch between projects (with conversation history preserved), check logs, and more. One management bot, one Claude bot, unlimited projects.
 
+<video src="docs/demo_video.mp4" controls width="100%"></video>
+
 ## Table of Contents
 
 - [Architecture](#architecture)

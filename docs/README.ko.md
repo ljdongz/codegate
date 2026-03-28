@@ -17,6 +17,8 @@ Claude Code의 [Channel](https://docs.anthropic.com/en/docs/claude-code/channels
 
 codegate는 서버에서 경량 데몬으로 실행되며, 텔레그램에서 세션의 전체 라이프사이클을 제어할 수 있게 해줍니다: 새 세션 시작, 프로젝트 전환 (대화 기록 유지), 로그 확인 등. 관리 봇 하나, Claude 봇 하나로 무제한 프로젝트를 관리할 수 있습니다.
 
+<video src="demo_video.mp4" controls width="100%"></video>
+
 ## 목차
 
 - [아키텍처](#아키텍처)
