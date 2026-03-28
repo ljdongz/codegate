@@ -13,10 +13,11 @@ func Uninstall() {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("This will remove all codegate data:")
 	fmt.Println("  - Stop running codegate and all tmux sessions")
-	fmt.Println("  - ~/.codegate/ (config, logs, PID file)")
+	fmt.Printf("  - %s/ (config, logs, PID file)\n", CodegateDir)
 	fmt.Println("  - ~/.claude/channels/telegram/.env")
 	fmt.Println("  - ~/.claude/channels/telegram/access.json")
-	fmt.Println("  - ~/go/bin/codegate binary")
+	exe, _ := os.Executable()
+	fmt.Printf("  - %s (binary)\n", exe)
 	fmt.Println()
 	fmt.Print("Continue? (y/N): ")
 	answer, _ := reader.ReadString('\n')
@@ -43,7 +44,7 @@ func Uninstall() {
 
 	home, _ := os.UserHomeDir()
 	removals := []string{
-		filepath.Join(home, ".codegate"),
+		CodegateDir,
 		filepath.Join(home, ".claude", "channels", "telegram", ".env"),
 		filepath.Join(home, ".claude", "channels", "telegram", "access.json"),
 	}
@@ -61,9 +62,10 @@ func Uninstall() {
 		fmt.Printf("  Removed: %s\n", path)
 	}
 
-	binPath := filepath.Join(home, "go", "bin", "codegate")
-	if err := os.Remove(binPath); err == nil {
-		fmt.Printf("  Removed: %s\n", binPath)
+	if exe, err := os.Executable(); err == nil {
+		if err := os.Remove(exe); err == nil {
+			fmt.Printf("  Removed: %s\n", exe)
+		}
 	}
 
 	fmt.Println()

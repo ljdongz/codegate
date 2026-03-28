@@ -31,6 +31,9 @@ func DefaultConfig() Config {
 }
 
 func configDir() (string, error) {
+	if dir := os.Getenv("CODEGATE_CONFIG_DIR"); dir != "" {
+		return dir, nil
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("get home dir: %w", err)

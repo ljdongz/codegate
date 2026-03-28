@@ -78,7 +78,7 @@ func Setup() {
 		fmt.Fprintf(os.Stderr, "Failed to save config: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println("Config saved to ~/.codegate/config.yaml")
+	fmt.Printf("Config saved to %s/config.yaml\n", CodegateDir)
 
 	fmt.Println("Installing Claude Code telegram plugin...")
 	installCmd := exec.Command("claude", "plugin", "install", "telegram@claude-plugins-official")

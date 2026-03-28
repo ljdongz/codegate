@@ -1,10 +1,16 @@
 BINARY := codegate
 BINDIR := bin
 
-.PHONY: build test lint clean install
+.PHONY: build test lint clean dev setup uninstall
 
 build:
 	go build -o $(BINDIR)/$(BINARY) ./cmd/codegate
+
+setup: build
+	CODEGATE_CONFIG_DIR=$(HOME)/.codegate-dev ./$(BINDIR)/$(BINARY) setup
+
+dev: build
+	CODEGATE_CONFIG_DIR=$(HOME)/.codegate-dev ./$(BINDIR)/$(BINARY) run
 
 test:
 	go test ./... -v
@@ -15,7 +21,6 @@ lint:
 clean:
 	rm -rf $(BINDIR) dist
 
-install: build
-	@mkdir -p $(HOME)/go/bin
-	cp $(BINDIR)/$(BINARY) $(HOME)/go/bin/$(BINARY).tmp
-	mv $(HOME)/go/bin/$(BINARY).tmp $(HOME)/go/bin/$(BINARY)
+uninstall:
+	rm -rf $(HOME)/.codegate-dev $(BINDIR)
+
