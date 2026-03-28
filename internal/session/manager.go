@@ -44,6 +44,7 @@ func (m *Manager) Start(name, projectPath string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	_ = m.stopAllSessions()
+	time.Sleep(1 * time.Second)
 	return m.startSession(name, projectPath, false)
 }
 
@@ -65,6 +66,7 @@ func (m *Manager) Switch(name, projectPath string, resume bool) error {
 	if err := m.stopAllSessions(); err != nil {
 		return err
 	}
+	time.Sleep(1 * time.Second)
 	return m.startSession(name, projectPath, resume)
 }
 
