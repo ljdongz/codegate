@@ -149,6 +149,8 @@ Send messages to each bot via individual direct messages.
 
 No additional setup required.
 
+> **Note:** When you first DM the Claude bot, Telegram automatically sends a `/start` command — this is default Telegram behavior and cannot be disabled. The resulting message can be safely ignored.
+
 #### 2. Group chat
 
 Invite both bots into a single Telegram group chat so all interactions happen in one place.
