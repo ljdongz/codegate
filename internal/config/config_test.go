@@ -8,9 +8,6 @@ import (
 
 func TestDefaultConfig(t *testing.T) {
 	cfg := DefaultConfig()
-	if cfg.MaxSessions != 5 {
-		t.Errorf("expected MaxSessions=5, got %d", cfg.MaxSessions)
-	}
 	if !cfg.SkipPermissions {
 		t.Error("expected SkipPermissions=true")
 	}
@@ -41,9 +38,6 @@ func TestLoadCreatesDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadFrom after save: %v", err)
 	}
-	if loaded.MaxSessions != 5 {
-		t.Errorf("expected MaxSessions=5, got %d", loaded.MaxSessions)
-	}
 	if !loaded.SkipPermissions {
 		t.Error("expected SkipPermissions=true")
 	}
@@ -66,7 +60,6 @@ claude_bots:
   - token: "claude-token"
     id: 12345
     username: "testbot"
-max_sessions: 10
 skip_permissions: false
 `
 	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
@@ -86,9 +79,6 @@ skip_permissions: false
 	}
 	if len(cfg.ClaudeBots) != 1 || cfg.ClaudeBots[0].Token != "claude-token" || cfg.ClaudeBots[0].ID != 12345 || cfg.ClaudeBots[0].UserName != "testbot" {
 		t.Errorf("unexpected ClaudeBots: %+v", cfg.ClaudeBots)
-	}
-	if cfg.MaxSessions != 10 {
-		t.Errorf("expected MaxSessions=10, got %d", cfg.MaxSessions)
 	}
 	if cfg.SkipPermissions {
 		t.Error("expected SkipPermissions=false")

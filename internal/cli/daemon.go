@@ -134,7 +134,7 @@ func Run() {
 	if len(cfg.ClaudeBots) > 0 {
 		claudeBotToken = cfg.ClaudeBots[0].Token
 	}
-	sm := session.NewManager(claudeBotToken, cfg.Telegram.AllowedUsers, cfg.MaxSessions, cfg.SkipPermissions)
+	sm := session.NewManager(claudeBotToken, cfg.Telegram.AllowedUsers, cfg.SkipPermissions)
 
 	b, err := bot.New(cfg.Telegram.Token, sm, cfg.Telegram.AllowedUsers, Version)
 	if err != nil {

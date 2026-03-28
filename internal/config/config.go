@@ -20,14 +20,12 @@ type Config struct {
 		AllowedUsers []int64 `yaml:"allowed_users"`
 	} `yaml:"telegram"`
 	ClaudeBots      []ClaudeBot `yaml:"claude_bots"`
-	MaxSessions     int         `yaml:"max_sessions"`
 	SkipPermissions bool        `yaml:"skip_permissions"`
 }
 
 func DefaultConfig() Config {
 	c := Config{}
 	c.Telegram.Token = "YOUR_TELEGRAM_BOT_TOKEN"
-	c.MaxSessions = 5
 	c.SkipPermissions = true
 	return c
 }

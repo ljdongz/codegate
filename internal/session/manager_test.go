@@ -44,16 +44,13 @@ func TestParseTimestamp(t *testing.T) {
 
 func TestNewManager(t *testing.T) {
 	allowedUsers := []int64{123, 456}
-	m := NewManager("bot-token", allowedUsers, 5, true)
+	m := NewManager("bot-token", allowedUsers, true)
 
 	if m.claudeBotToken != "bot-token" {
 		t.Errorf("claudeBotToken = %q, want %q", m.claudeBotToken, "bot-token")
 	}
 	if len(m.allowedUsers) != 2 || m.allowedUsers[0] != 123 || m.allowedUsers[1] != 456 {
 		t.Errorf("allowedUsers = %v, want [123 456]", m.allowedUsers)
-	}
-	if m.maxSessions != 5 {
-		t.Errorf("maxSessions = %d, want 5", m.maxSessions)
 	}
 	if !m.skipPermissions {
 		t.Error("skipPermissions = false, want true")

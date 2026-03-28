@@ -18,15 +18,13 @@ type Manager struct {
 	mu              sync.RWMutex
 	claudeBotToken  string
 	allowedUsers    []int64
-	maxSessions     int
 	skipPermissions bool
 }
 
-func NewManager(claudeBotToken string, allowedUsers []int64, maxSessions int, skipPermissions bool) *Manager {
+func NewManager(claudeBotToken string, allowedUsers []int64, skipPermissions bool) *Manager {
 	return &Manager{
 		claudeBotToken:  claudeBotToken,
 		allowedUsers:    allowedUsers,
-		maxSessions:     maxSessions,
 		skipPermissions: skipPermissions,
 	}
 }
@@ -253,10 +251,3 @@ func tmuxSessionExists(name string) bool {
 	return exec.Command("tmux", "has-session", "-t", name).Run() == nil
 }
 
-func countActiveSessions() (int, error) {
-	sessions, err := listSessions()
-	if err != nil {
-		return 0, err
-	}
-	return len(sessions), nil
-}
