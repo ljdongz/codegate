@@ -39,6 +39,7 @@ brews:
   - repository:
       owner: ljdongz
       name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
     homepage: "https://github.com/ljdongz/codegate"
     description: "Remotely manage Claude Code sessions via Telegram"
