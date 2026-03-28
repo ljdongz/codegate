@@ -45,6 +45,7 @@ func (m *Manager) SetClaudeBotToken(token string) {
 func (m *Manager) Start(name, projectPath string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	_ = m.stopAllSessions()
 	return m.startSession(name, projectPath, false)
 }
 
@@ -112,6 +113,36 @@ func (m *Manager) Logs(name string, lines int) (string, error) {
 	return strings.TrimRight(string(out), "\n"), nil
 }
 
+// CheckAuth captures recent tmux output and checks for auth-failure indicators.
+// Returns true if authentication appears to be needed.
+func (m *Manager) CheckAuth(name string) (bool, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	sessionName := sessionPrefix + name
+	if !tmuxSessionExists(sessionName) {
+		return false, fmt.Errorf("session %q does not exist", name)
+	}
+
+	out, err := exec.Command("tmux", "capture-pane", "-t", sessionName, "-p", "-S", "-30").Output()
+	if err != nil {
+		return false, fmt.Errorf("capturing pane output: %w", err)
+	}
+
+	lower := strings.ToLower(string(out))
+	authIndicators := []string{
+		"not logged in",
+		"run /login",
+		"please run /login",
+	}
+	for _, indicator := range authIndicators {
+		if strings.Contains(lower, indicator) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (m *Manager) startSession(name, projectPath string, resume bool) error {
 	if m.claudeBotToken == "" {
 		return fmt.Errorf("Claude bot token not set. Send /bot <token> to the management bot first")
@@ -120,15 +151,7 @@ func (m *Manager) startSession(name, projectPath string, resume bool) error {
 	sessionName := sessionPrefix + name
 
 	if tmuxSessionExists(sessionName) {
-		return fmt.Errorf("session %q already exists", name)
-	}
-
-	count, err := countActiveSessions()
-	if err != nil {
-		return fmt.Errorf("counting active sessions: %w", err)
-	}
-	if count >= m.maxSessions {
-		return fmt.Errorf("max sessions (%d) reached", m.maxSessions)
+		_ = exec.Command("tmux", "kill-session", "-t", sessionName).Run()
 	}
 
 	info, err := os.Stat(projectPath)

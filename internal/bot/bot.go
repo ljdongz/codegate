@@ -27,6 +27,7 @@ type SessionManager interface {
 	StopAll() error
 	Clear(name string) error
 	Logs(name string, lines int) (string, error)
+	CheckAuth(name string) (bool, error)
 	SetClaudeBotToken(token string)
 }
 
@@ -65,7 +66,6 @@ func (b *Bot) registerCommands() {
 		tgbotapi.BotCommand{Command: "stop", Description: "Stop active sessions"},
 		tgbotapi.BotCommand{Command: "status", Description: "Show status"},
 		tgbotapi.BotCommand{Command: "switch", Description: "Switch session (resume) — /switch <path>"},
-		tgbotapi.BotCommand{Command: "switch_new", Description: "Switch session (fresh) — /switch_new <path>"},
 		tgbotapi.BotCommand{Command: "ls", Description: "List directory — /ls [flags] [path]"},
 		tgbotapi.BotCommand{Command: "bot_add", Description: "Register Claude bot — /bot_add <token>"},
 		tgbotapi.BotCommand{Command: "bot_remove", Description: "Remove Claude bot — /bot_remove <ID>"},
@@ -183,9 +183,7 @@ func (b *Bot) dispatchCommand(msg *tgbotapi.Message, cmd string, args []string) 
 	case "status":
 		b.handleStatus(msg, msg.From.ID)
 	case "switch":
-		b.handleSwitch(msg.Chat.ID, msg.From.ID, args, true)
-	case "switch_new":
-		b.handleSwitch(msg.Chat.ID, msg.From.ID, args, false)
+		b.handleSwitch(msg.Chat.ID, msg.From.ID, args)
 	case "ls":
 		b.handleLs(msg.Chat.ID, args)
 	case "bot_add":
@@ -239,7 +237,39 @@ func (b *Bot) handleNew(chatID int64, userID int64, args []string) {
 	b.mu.Unlock()
 
 	b.reply(chatID, fmt.Sprintf("Session %q started at %s.", name, path))
+
+	// Check auth status asynchronously after Claude Code starts up
+	go b.checkAuthAndNotify(chatID, name, path)
 }
+
+func (b *Bot) checkAuthAndNotify(chatID int64, name, path string) {
+	sessionName := sessionPrefix + name
+
+	// Wait for Claude Code to start up, then check a few times
+	for i := 0; i < 3; i++ {
+		time.Sleep(3 * time.Second)
+		needsAuth, err := b.sm.CheckAuth(name)
+		if err != nil {
+			return // session gone or error — stop checking
+		}
+		if needsAuth {
+			b.reply(chatID, fmt.Sprintf(`⚠️ Claude Code authentication required.
+
+Follow these steps:
+
+1️⃣ Attach to the tmux session from your terminal:
+    tmux attach -t %s
+
+2️⃣ Type /login in the Claude Code session and complete browser authentication.
+
+3️⃣ Come back to Telegram and reconnect:
+    /new %s`, sessionName, path))
+			return
+		}
+	}
+}
+
+const sessionPrefix = "cg-"
 
 func (b *Bot) handleStop(chatID int64, userID int64) {
 	sessions, err := b.sm.List()
@@ -248,7 +278,7 @@ func (b *Bot) handleStop(chatID int64, userID int64) {
 		return
 	}
 	if len(sessions) == 0 {
-		b.reply(chatID, "No active sessions.")
+		b.reply(chatID, "No active session.")
 		return
 	}
 
@@ -261,11 +291,7 @@ func (b *Bot) handleStop(chatID int64, userID int64) {
 	delete(b.defaultProject, userID)
 	b.mu.Unlock()
 
-	if len(sessions) == 1 {
-		b.reply(chatID, fmt.Sprintf("Session %q stopped.", sessions[0].Name))
-	} else {
-		b.reply(chatID, fmt.Sprintf("%d sessions stopped.", len(sessions)))
-	}
+	b.reply(chatID, fmt.Sprintf("Session %q stopped.", sessions[0].Name))
 }
 
 func (b *Bot) handleStatus(msg *tgbotapi.Message, userID int64) {
@@ -283,17 +309,11 @@ func (b *Bot) handleStatus(msg *tgbotapi.Message, userID int64) {
 
 	var sb strings.Builder
 	if len(sessions) == 0 {
-		sb.WriteString("No active sessions.")
+		sb.WriteString("No active session.")
 	} else {
-		sb.WriteString("Active sessions:\n")
-		for _, s := range sessions {
-			uptime := time.Since(s.CreatedAt).Round(time.Second)
-			marker := ""
-			if s.Name == def {
-				marker = " [default]"
-			}
-			sb.WriteString(fmt.Sprintf("  • %s (up %s)%s\n", s.Name, uptime, marker))
-		}
+		s := sessions[0]
+		uptime := time.Since(s.CreatedAt).Round(time.Second)
+		sb.WriteString(fmt.Sprintf("Active session:\n  • %s (up %s)\n", s.Name, uptime))
 	}
 
 	if def != "" {
@@ -351,7 +371,7 @@ func (b *Bot) handleStatus(msg *tgbotapi.Message, userID int64) {
 	b.reply(chatID, sb.String())
 }
 
-func (b *Bot) handleSwitch(chatID int64, userID int64, args []string, resume bool) {
+func (b *Bot) handleSwitch(chatID int64, userID int64, args []string) {
 	if len(args) < 1 {
 		b.reply(chatID, "Usage: /switch <path>")
 		return
@@ -369,7 +389,7 @@ func (b *Bot) handleSwitch(chatID int64, userID int64, args []string, resume boo
 		return
 	}
 
-	if err := b.sm.Switch(name, path, resume); err != nil {
+	if err := b.sm.Switch(name, path, true); err != nil {
 		b.reply(chatID, fmt.Sprintf("Failed to switch to session %q: %v", name, err))
 		return
 	}
@@ -378,11 +398,7 @@ func (b *Bot) handleSwitch(chatID int64, userID int64, args []string, resume boo
 	b.defaultProject[userID] = name
 	b.mu.Unlock()
 
-	mode := "resumed"
-	if !resume {
-		mode = "new"
-	}
-	b.reply(chatID, fmt.Sprintf("Switched to session %q at %s (%s).", name, path, mode))
+	b.reply(chatID, fmt.Sprintf("Switched to session %q at %s (resumed).", name, path))
 }
 
 func (b *Bot) handleLs(chatID int64, args []string) {
@@ -754,10 +770,9 @@ func helpText() string {
 	return `codegate commands:
 
 Session:
-  • /new <path> — Start a new Claude session. Path must exist (use /mkdir to create).
-  • /stop — Stop all active sessions.
+  • /new <path> — Start a new Claude session. Stops any existing session first.
+  • /stop — Stop the active session.
   • /switch <path> — Switch to another project. Resumes previous conversation.
-  • /switch_new <path> — Switch to another project. Starts a fresh conversation.
   • /clear — Restart current session with a fresh conversation.
   • /status — Show status (sessions, bots, groups, version).
   • /logs [lines] — Show Claude session terminal output (default: 50, max: 200). Useful when Claude bot is typing but not responding.
