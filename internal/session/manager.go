@@ -1,7 +1,9 @@
 package session
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"strconv"
@@ -44,6 +46,7 @@ func (m *Manager) Start(name, projectPath string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	_ = m.stopAllSessions()
+	m.flushBotUpdates()
 	time.Sleep(1 * time.Second)
 	return m.startSession(name, projectPath, false)
 }
@@ -66,6 +69,7 @@ func (m *Manager) Switch(name, projectPath string, resume bool) error {
 	if err := m.stopAllSessions(); err != nil {
 		return err
 	}
+	m.flushBotUpdates()
 	time.Sleep(1 * time.Second)
 	return m.startSession(name, projectPath, resume)
 }
@@ -94,6 +98,7 @@ func (m *Manager) Clear(name string) error {
 	if err := stopSession(name); err != nil {
 		return err
 	}
+	m.flushBotUpdates()
 	return m.startSession(name, projectPath, false)
 }
 
@@ -141,6 +146,39 @@ func (m *Manager) CheckAuth(name string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// flushBotUpdates acknowledges all pending Telegram updates for the Claude bot
+// so that a newly started session does not receive stale messages from a previous session.
+func (m *Manager) flushBotUpdates() {
+	if m.claudeBotToken == "" {
+		return
+	}
+
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/getUpdates?offset=-1&timeout=0", m.claudeBotToken)
+	resp, err := http.Get(url)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		OK     bool `json:"ok"`
+		Result []struct {
+			UpdateID int64 `json:"update_id"`
+		} `json:"result"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil || !result.OK || len(result.Result) == 0 {
+		return
+	}
+
+	// Acknowledge all updates by requesting offset = last_update_id + 1
+	ackURL := fmt.Sprintf("https://api.telegram.org/bot%s/getUpdates?offset=%d&timeout=0", m.claudeBotToken, result.Result[0].UpdateID+1)
+	ackResp, err := http.Get(ackURL)
+	if err != nil {
+		return
+	}
+	ackResp.Body.Close()
 }
 
 func (m *Manager) startSession(name, projectPath string, resume bool) error {
