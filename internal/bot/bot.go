@@ -533,7 +533,7 @@ func (b *Bot) handleBotAdd(msg *tgbotapi.Message, args []string) {
 
 	b.sm.SetClaudeBotToken(cfg.ClaudeBots[0].Token)
 
-	b.reply(msg.Chat.ID, fmt.Sprintf("Bot added: @%s (ID: %d). You can now start sessions with /new.", claudeBot.Self.UserName, claudeBot.Self.ID))
+	b.reply(msg.Chat.ID, fmt.Sprintf("Bot added: @%s (ID: %d). You can now start sessions with /new.\n\nNote: When you first DM the Claude bot, Telegram automatically sends a /start command. The resulting message can be safely ignored.", claudeBot.Self.UserName, claudeBot.Self.ID))
 }
 
 func (b *Bot) handleBotRemove(msg *tgbotapi.Message, args []string) {
