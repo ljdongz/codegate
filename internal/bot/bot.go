@@ -72,7 +72,6 @@ func (b *Bot) registerCommands() {
 		tgbotapi.BotCommand{Command: "group_add", Description: "Allow group — /group_add [ID]"},
 		tgbotapi.BotCommand{Command: "group_remove", Description: "Remove group — /group_remove [ID]"},
 		tgbotapi.BotCommand{Command: "group_id", Description: "Show this group's chat ID"},
-		tgbotapi.BotCommand{Command: "mkdir", Description: "Create directory — /mkdir <path>"},
 		tgbotapi.BotCommand{Command: "clear", Description: "Restart current session"},
 		tgbotapi.BotCommand{Command: "logs", Description: "Show Claude session logs — /logs [lines]"},
 		tgbotapi.BotCommand{Command: "update", Description: "Update codegate to latest version"},
@@ -196,8 +195,6 @@ func (b *Bot) dispatchCommand(msg *tgbotapi.Message, cmd string, args []string) 
 		b.handleGroupRemove(msg, args)
 	case "group_id":
 		b.handleGroupID(msg)
-	case "mkdir":
-		b.handleMkdir(msg.Chat.ID, args)
 	case "clear":
 		b.handleClear(msg.Chat.ID, msg.From.ID)
 	case "logs":
@@ -431,25 +428,6 @@ func (b *Bot) handleLs(chatID int64, args []string) {
 	b.reply(chatID, fmt.Sprintf("$ ls %s\n```\n%s```", strings.Join(append(flags, dir), " "), string(out)))
 }
 
-func (b *Bot) handleMkdir(chatID int64, args []string) {
-	if len(args) < 1 {
-		b.reply(chatID, "Usage: /mkdir <path>")
-		return
-	}
-
-	path, err := pathutil.Expand(args[0])
-	if err != nil {
-		b.reply(chatID, fmt.Sprintf("Invalid path: %v", err))
-		return
-	}
-
-	if err := os.MkdirAll(path, 0755); err != nil {
-		b.reply(chatID, fmt.Sprintf("Failed to create directory: %v", err))
-		return
-	}
-
-	b.reply(chatID, fmt.Sprintf("Directory created: %s", path))
-}
 
 func (b *Bot) handleClear(chatID int64, userID int64) {
 	b.mu.RLock()
@@ -777,10 +755,6 @@ Session:
   • /status — Show status (sessions, bots, groups, version).
   • /logs [lines] — Show Claude session terminal output (default: 50, max: 200). Useful when Claude bot is typing but not responding.
 
-File system:
-  • /mkdir <path> — Create a directory (supports nested paths).
-  • /ls [flags] [path] — List directory contents (default: ~).
-
 Bot:
   • /bot_add <token> — Register a Claude bot (DM only).
   • /bot_remove <ID> — Remove a registered bot (DM only).
@@ -791,5 +765,6 @@ Group:
   • /group_remove [ID] — Remove group from allow list. Omit ID in group chat to use current group.
   • /group_id — Show this group's chat ID (group chat only).
 
-  • /help — Show this help.`
+File system:
+  • /ls [flags] [path] — List directory contents (default: ~).`
 }

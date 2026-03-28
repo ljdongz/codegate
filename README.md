@@ -204,19 +204,12 @@ Invite both bots into a single Telegram group chat so all interactions happen in
 
 | Command | Description |
 |---------|-------------|
-| `/new <path>` | Start a new Claude session. Stops any existing session first. |
+| `/new <path>` | Start a new Claude session. The path must be a directory where Claude Code has been run at least once (to complete the workspace trust prompt). |
 | `/stop` | Stop the active session |
 | `/status` | Show status and active project |
 | `/switch <path>` | Switch to a project (resumes previous conversation via `--continue`) |
 | `/clear` | Restart current session with a fresh conversation |
 | `/logs [lines]` | Show Claude session output (default: 50, max: 200) |
-
-**File commands:**
-
-| Command | Description |
-|---------|-------------|
-| `/mkdir <path>` | Create a directory on the server |
-| `/ls [flags] [path]` | List directory contents (default: ~) |
 
 **Bot & group management:**
 
@@ -228,7 +221,13 @@ Invite both bots into a single Telegram group chat so all interactions happen in
 | `/group_remove` | Remove current group from allow list |
 | `/group_id` | Show current group's chat ID |
 | `/update` | Update codegate to latest version |
-| `/help` | Show help |
+
+**Other:**
+
+| Command | Description |
+|---------|-------------|
+| `/ls [flags] [path]` | List directory contents (default: ~) |
+| `/help` | Show available commands |
 
 > **Note:** Paths without `/` or `~` prefix are resolved relative to your home directory. For example, `/new myapp` is equivalent to `/new ~/myapp`.
 
