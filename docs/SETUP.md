@@ -53,17 +53,7 @@ TELEGRAM_BOT_TOKEN=<Claude bot token>
 {"dmPolicy":"allowlist","allowFrom":["<user ID>"]}
 ```
 
-## 5. Install codegate
-
-From source (development):
-```bash
-git clone https://github.com/ljdongz/codegate.git
-cd codegate
-make setup
-```
-
-## 6. Done
+## 5. Done
 
 Inform the user:
-- Run the bot with `make dev` (foreground) for development
-- Start a Claude session on Telegram with `/new <path>`
+- Setup is complete. Start codegate and send `/status` to the management bot to verify.
