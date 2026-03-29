@@ -73,14 +73,19 @@ func DoUpdate(tagName string) error {
 
 	newBin := filepath.Join(tmpDir, "codegate")
 	if err := os.Rename(newBin, exe); err != nil {
+		// In-place overwrite breaks macOS code signing (taskgated kills the binary).
+		// Remove the old file first, then create a new one to preserve a valid signature.
+		if err2 := os.Remove(exe); err2 != nil {
+			return fmt.Errorf("failed to remove old binary (try with sudo): %w", err2)
+		}
 		src, err2 := os.Open(newBin)
 		if err2 != nil {
 			return fmt.Errorf("failed to open new binary: %w", err2)
 		}
 		defer src.Close()
-		dst, err2 := os.OpenFile(exe, os.O_WRONLY|os.O_TRUNC, 0755)
+		dst, err2 := os.OpenFile(exe, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0755)
 		if err2 != nil {
-			return fmt.Errorf("failed to write binary (try with sudo): %w", err2)
+			return fmt.Errorf("failed to create binary (try with sudo): %w", err2)
 		}
 		if _, err2 := io.Copy(dst, src); err2 != nil {
 			dst.Close()
