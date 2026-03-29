@@ -46,7 +46,6 @@ brews:
     license: "MIT"
     dependencies:
       - name: tmux
-      - name: bun
     install: |
       bin.install "codegate"
     test: |
